@@ -1,5 +1,141 @@
-﻿<h3>Index</h3>
+﻿@page "/"
+@using ITMartinFileSorter.Domain.Entities
+@using ITMartinFileSorter.Domain.Enums
+@using ITMartinFileSorter.Application.Helpers
+@using ITMartinFileSorter.Application.UseCases
+@inject IFileScanner FileScanner
+
+<h3>Media File Browser</h3>
+
+<!-- Folder input -->
+<div class="folder-input d-flex">
+    <input type="text" @bind="FolderPath" placeholder="Enter folder path..." class="form-control me-2" />
+    <button class="btn btn-primary" @onclick="ScanFolder">Scan</button>
+</div>
+
+@if (AllFiles == null)
+{
+    <p>Loading files...</p>
+}
+else if (!AllFiles.Any())
+{
+    <p>No files found.</p>
+}
+else
+{
+    <!-- 1) Large All Files -->
+    <div class="all-files-card">
+        <strong>All Files:</strong> @AllFiles.Count files, @FormatSize(AllFiles.Sum(f => f.SizeBytes))
+    </div>
+
+    <!-- 2) Main categories -->
+    <div class="main-category-row">
+        @foreach (var mainCat in MainCategories)
+        {
+            <div class="main-category category-card @CategoryColorHelper.GetColor(mainCat.Key)" @onclick="() => ToggleMain(mainCat.Key)">
+                <strong>@mainCat.Key</strong><br />
+                @mainCat.Value.Count files, @FormatSize(mainCat.Value.Sum(f => f.SizeBytes))
+
+                @if (ExpandedMain == mainCat.Key)
+                {
+                    <!-- Subcategories -->
+                    @foreach (var subCat in mainCat.Value.GroupBy(f => f.SubCategory))
+                    {
+                        <div class="sub-category category-card @CategoryColorHelper.GetColor(mainCat.Key)" 
+                             @onclick="() => ToggleSub(subCat.Key)">
+                            <strong>@subCat.Key</strong><br />
+                            @subCat.Count() files, @FormatSize(subCat.Sum(f => f.SizeBytes))
+
+                            @if (ExpandedSub == subCat.Key)
+                            {
+                                <!-- Tertiary -->
+                                <div class="tertiary-container">
+                                    @foreach (var tertCat in subCat.GroupBy(f => f.TertiaryCategory))
+                                    {
+                                        <div class="tertiary-box">
+                                            <strong>@tertCat.Key</strong><br />
+                                            @tertCat.Count() files, @FormatSize(tertCat.Sum(f => f.SizeBytes))
+
+                                            <!-- Thumbnails -->
+                                            <div class="d-flex flex-wrap mt-1">
+                                                @foreach (var file in tertCat)
+                                                {
+                                                    <div class="thumbnail-box">
+                                                        <img src="@file.FullPath" alt="" />
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+}
 
 @code {
-    
+    private string FolderPath { get; set; } = "";
+    private List<MediaFile> AllFiles = new();
+    private Dictionary<MediaMainCategory, List<MediaFile>> MainCategories = new();
+    private MediaMainCategory? ExpandedMain;
+    private MediaSubCategory? ExpandedSub;
+    private DuplicateFinder Finder = new DuplicateFinder();
+
+    private void ScanFolder()
+    {
+        if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
+        {
+            AllFiles = new List<MediaFile>();
+            MainCategories.Clear();
+            return;
+        }
+
+        AllFiles = FileScanner.ScanFolder(FolderPath).ToList();
+        DuplicateHelper.ResetCache();
+        foreach (var file in AllFiles) DuplicateHelper.IsDuplicate(file);
+
+        var duplicates = Finder.FindDuplicates(AllFiles);
+        foreach (var group in duplicates.Values)
+            foreach (var file in group)
+                file.SubCategory = MediaSubCategory.Duplicate;
+
+        MainCategories = AllFiles
+            .GroupBy(f => f.MainCategory)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        ExpandedMain = null;
+        ExpandedSub = null;
+    }
+
+    private void ToggleMain(MediaMainCategory main)
+    {
+        if (ExpandedMain == main)
+        {
+            ExpandedMain = null;
+            ExpandedSub = null;
+        }
+        else
+        {
+            ExpandedMain = main;
+            ExpandedSub = null;
+        }
+    }
+
+    private void ToggleSub(MediaSubCategory sub)
+    {
+        if (ExpandedSub == sub) ExpandedSub = null;
+        else ExpandedSub = sub;
+    }
+
+    private string FormatSize(long bytes)
+    {
+        if (bytes > 1_000_000_000) return $"{bytes / 1_000_000_000.0:F2} GB";
+        if (bytes > 1_000_000) return $"{bytes / 1_000_000.0:F2} MB";
+        if (bytes > 1_000) return $"{bytes / 1_000.0:F2} KB";
+        return $"{bytes} B";
+    }
 }

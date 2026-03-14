@@ -1,6 +1,6 @@
 ﻿using OpenCvSharp;
 
-namespace ITMartinFileScanner.Application.Helpers;
+namespace ITMartinFileSorter.Application.Helpers;
 
 public static class ImageQualityHelper
 {
@@ -8,16 +8,19 @@ public static class ImageQualityHelper
     {
         try
         {
-            using var mat = Cv2.ImRead(path, ImreadModes.Grayscale);
-            if (mat.Empty()) return false;
+            using var image = Cv2.ImRead(path, ImreadModes.Grayscale);
+
+            if (image.Empty())
+                return false;
 
             using var laplacian = new Mat();
-            Cv2.Laplacian(mat, laplacian, MatType.CV_64F);
+            Cv2.Laplacian(image, laplacian, MatType.CV_64F);
 
-            var mean = Cv2.Mean(laplacian);
-            double variance = mean.Val0 * mean.Val0;
+            Cv2.MeanStdDev(laplacian, out var mean, out var stddev);
 
-            return variance < 100; // lower = blur
+            double variance = stddev.Val0 * stddev.Val0;
+
+            return variance < 100; // threshold
         }
         catch
         {

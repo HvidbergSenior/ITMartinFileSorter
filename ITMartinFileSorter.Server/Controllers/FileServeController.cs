@@ -1,6 +1,26 @@
-﻿namespace ITMartinFileSorter.Blazor.Controllers;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 
-public class FileServeController
+namespace ITMartinFileSorter.Server.Controllers;
+
+[ApiController]
+[Route("api/media")]
+public class MediaController : ControllerBase
 {
-    
+    [HttpGet]
+    public IActionResult Get([FromQuery] string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return NotFound();
+
+        if (!System.IO.File.Exists(path))
+            return NotFound();
+
+        var provider = new FileExtensionContentTypeProvider();
+
+        if (!provider.TryGetContentType(path, out var contentType))
+            contentType = "application/octet-stream";
+
+        return PhysicalFile(path, contentType);
+    }
 }

@@ -1,5 +1,29 @@
-﻿<h3>Admin</h3>
+﻿@page "/admin"
+@inject IFileScanner Scanner
+
+<h3>Admin Panel</h3>
+
+<button class="btn btn-warning mt-2" @onclick="RefreshCache">
+    @{
+        if (isRefreshing)
+        {
+            <text><i class="spinner-border spinner-border-sm"></i> Refreshing...</text>
+        }
+        else
+        {
+            <text>Refresh Cache</text>
+        }
+    }
+</button>
 
 @code {
-    
+    bool isRefreshing = false;
+
+    async Task RefreshCache()
+    {
+        isRefreshing = true;
+        // Example: call a service to refresh
+        await Task.Delay(1500); // simulate work
+        isRefreshing = false;
+    }
 }

@@ -1,8 +1,8 @@
-﻿using ITMartinFileScanner.Domain.Entities;
-using ITMartinFileScanner.Domain.Enums;
-using ITMartinFileScanner.Domain.Interfaces;
+﻿using ITMartinFileSorter.Domain.Entities;
+using ITMartinFileSorter.Domain.Enums;
+using ITMartinFileSorter.Domain.Interfaces;
 
-namespace ITMartinFileScanner.Application.UseCases;
+namespace ITMartinFileSorter.Application.UseCases;
 
 public class CopyDuplicateGroupsUseCase
 {
@@ -13,12 +13,17 @@ public class CopyDuplicateGroupsUseCase
         _repo = repo;
     }
 
+    /// <summary>
+    /// Copies grouped duplicate files into a structured folder under "Duplicates".
+    /// </summary>
+    /// <param name="duplicates">Dictionary of hash → list of duplicate MediaFiles</param>
+    /// <param name="outputRoot">Root folder for copied duplicates</param>
     public void Execute(
         Dictionary<string, List<MediaFile>> duplicates,
         string outputRoot)
     {
-        var dupRoot = Path.Combine(outputRoot, MediaMainCategory.DeleteCandidate.ToString(),
-            MediaSubCategory.Duplicate.ToString());
+        // Use a generic "Duplicates" folder under output root
+        var dupRoot = Path.Combine(outputRoot, "Duplicates");
         _repo.CreateDirectory(dupRoot);
 
         int groupIndex = 1;
@@ -30,6 +35,7 @@ public class CopyDuplicateGroupsUseCase
 
             foreach (var file in group.Value)
             {
+                // Keep original file name but ensure uniqueness
                 var destFile = GetUniquePath(Path.Combine(groupFolder, Path.GetFileName(file.FullPath)));
                 _repo.Copy(file.FullPath, destFile);
             }
@@ -38,6 +44,9 @@ public class CopyDuplicateGroupsUseCase
         }
     }
 
+    /// <summary>
+    /// Generates a unique file path to prevent overwriting existing files
+    /// </summary>
     private string GetUniquePath(string path)
     {
         if (!File.Exists(path))

@@ -1,4 +1,4 @@
-﻿namespace ITMartinFileScanner.Domain.Interfaces;
+﻿namespace ITMartinFileSorter.Domain.Interfaces;
 
 public interface IFileCopyRepository
 {

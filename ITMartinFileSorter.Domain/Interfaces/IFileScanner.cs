@@ -1,6 +1,6 @@
-﻿using ITMartinFileScanner.Domain.Entities;
+﻿using ITMartinFileSorter.Domain.Entities;
 
-namespace ITMartinFileScanner.Domain.Interfaces;
+namespace ITMartinFileSorter.Domain.Interfaces;
 
 public interface IFileScanner
 {

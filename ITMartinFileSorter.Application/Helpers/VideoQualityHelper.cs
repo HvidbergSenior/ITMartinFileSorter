@@ -1,6 +1,6 @@
 ﻿using OpenCvSharp;
 
-namespace ITMartinFileScanner.Application.Helpers;
+namespace ITMartinFileSorter.Application.Helpers;
 
 public static class VideoQualityHelper
 {

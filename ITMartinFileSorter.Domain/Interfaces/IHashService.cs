@@ -1,6 +1,6 @@
 ﻿namespace ITMartinFileSorter.Domain.Interfaces;
 
-public class IHashService
+public interface IHashService
 {
-    
+    string ComputeHash(string filePath);
 }

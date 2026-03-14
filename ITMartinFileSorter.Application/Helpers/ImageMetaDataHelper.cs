@@ -1,7 +1,7 @@
 ﻿using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
 
-namespace ITMartinFileScanner.Application.Helpers;
+namespace ITMartinFileSorter.Application.Helpers;
 
 public static class ImageMetadataHelper
 {

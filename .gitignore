@@ -1,5 +1,75 @@
+############################
+# Build results
+############################
 bin/
 obj/
-/packages/
+out/
+publish/
+
+############################
+# Rider / IntelliJ
+############################
+.idea/
+*.sln.iml
+*.iml
 riderModule.iml
-/_ReSharper.Caches/
+
+############################
+# ReSharper
+############################
+_ReSharper.Caches/
+*.DotSettings.user
+
+############################
+# Visual Studio leftovers
+############################
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+############################
+# NuGet
+############################
+packages/
+*.nupkg
+*.snupkg
+.nuget/
+
+############################
+# Logs
+############################
+*.log
+
+############################
+# Test results
+############################
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+############################
+# Node / frontend
+############################
+node_modules/
+
+############################
+# OS generated files
+############################
+.DS_Store
+Thumbs.db
+desktop.ini
+
+############################
+# Environment / secrets
+############################
+.env
+.env.*
+
+############################
+# Temporary files
+############################
+*.tmp
+*.temp

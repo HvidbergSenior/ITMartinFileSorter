@@ -1,4 +1,4 @@
-﻿namespace ITMartinFileScanner.Domain.ValueObjects;
+﻿namespace ITMartinFileSorter.Domain.ValueObjects;
 
 public class FileHash
 {

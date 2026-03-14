@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
-using ITMartinFileScanner.Domain.Interfaces;
+using ITMartinFileSorter.Domain.Interfaces;
 
-namespace ITMartinFileScanner.Infrastructure.Services;
+namespace ITMartinFileSorter.Infrastructure.Services;
 
 public class Sha256HashService : IHashService
 {

@@ -1,8 +1,8 @@
-﻿using ITMartinFileScanner.Domain.Entities;
-using ITMartinFileScanner.Domain.Enums;
-using ITMartinFileScanner.Domain.Interfaces;
+﻿using ITMartinFileSorter.Domain.Entities;
+using ITMartinFileSorter.Domain.Enums;
+using ITMartinFileSorter.Domain.Interfaces;
 
-namespace ITMartinFileScanner.Application.UseCases;
+namespace ITMartinFileSorter.Application.UseCases;
 
 public class AnalyzeFolderUseCase
 {

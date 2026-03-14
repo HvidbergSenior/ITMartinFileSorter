@@ -1,7 +1,7 @@
-﻿using ITMartinFileScanner.Domain.Entities;
-using ITMartinFileScanner.Domain.Enums;
+﻿using ITMartinFileSorter.Domain.Entities;
+using ITMartinFileSorter.Domain.Enums;
 
-namespace ITMartinFileScanner.Application.UseCases;
+namespace ITMartinFileSorter.Application.UseCases;
 
 public class DuplicateFinder
 {
@@ -14,7 +14,7 @@ public class DuplicateFinder
 
         var result = new Dictionary<string, List<MediaFile>>();
 
-        // 1) exact hash duplicates
+        // --- Exact hash duplicates ---
         foreach (var group in filtered
                      .Where(f => !string.IsNullOrEmpty(f.Hash))
                      .GroupBy(f => f.Hash)
@@ -23,7 +23,7 @@ public class DuplicateFinder
             result[$"HASH:{group.Key}"] = group.ToList();
         }
 
-        // 2) video metadata duplicates (duration + resolution)
+        // --- Video duplicates by metadata ---
         var videoGroups = filtered
             .Where(f => f.Type == MediaType.Video)
             .Where(f => f.DurationMs.HasValue && f.Width.HasValue && f.Height.HasValue)
@@ -43,19 +43,13 @@ public class DuplicateFinder
         DateTime? from,
         DateTime? to)
     {
-        if (from == null && to == null)
-            return files;
+        if (from == null && to == null) return files;
 
         return files.Where(f =>
         {
             var dt = f.CreatedAt;
-
-            if (from.HasValue && dt < from.Value)
-                return false;
-
-            if (to.HasValue && dt > to.Value)
-                return false;
-
+            if (from.HasValue && dt < from.Value) return false;
+            if (to.HasValue && dt > to.Value) return false;
             return true;
         });
     }

@@ -1,176 +1,119 @@
-﻿using ITMartinFileScanner.Application.Helpers;
-using ITMartinFileScanner.Domain.Entities;
-using ITMartinFileScanner.Domain.Enums;
+﻿using ITMartinFileSorter.Domain.Entities;
+using ITMartinFileSorter.Domain.Enums;
+using ITMartinFileSorter.Application.Helpers;
+using System.IO;
 
-namespace ITMartinFileScanner.Application.Services;
+namespace ITMartinFileSorter.Application.Services;
 
 public class MediaCategorizer
 {
     public void Categorize(MediaFile file)
     {
-        Console.WriteLine($"Categorize: {file.FullPath} | Created: {file.CreatedAt}");
+        string ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
+        string fileName = Path.GetFileName(file.FullPath).ToLowerInvariant();
 
-        var lowerName = Path.GetFileName(file.FullPath).ToLowerInvariant();
-        var ext = Path.GetExtension(file.FullPath).Trim().ToLowerInvariant();
-
-        // ----------------------------
-        // 📅 Year-Month (yyyy-MM)
-        // ----------------------------
-        string yearMonth = file.CreatedAt.Year > 1990
-            ? file.CreatedAt.ToString("yyyy-MM")
-            : "Unknown";
-
-        string yearOnly = file.CreatedAt.Year > 1990
-            ? file.CreatedAt.Year.ToString()
-            : "Unknown";
+        string yearMonth = file.CreatedAt.Year > 1990 ? file.CreatedAt.ToString("yyyy-MM") : "Unknown";
+        string yearOnly = file.CreatedAt.Year > 1990 ? file.CreatedAt.Year.ToString() : "Unknown";
 
         // ----------------------------
-        // 📱 Device detection (EXIF)
+        // Images
         // ----------------------------
         if (file.Type == MediaType.Image)
         {
-            var meta = ExifHelper.ReadMetadata(file.FullPath);
+            // Screenshot detection
+            if (ext == ".heic" && fileName.Contains("img"))
+                file.SubCategory = MediaSubCategory.iPhoneScreenshot;
+            else if (fileName.Contains("screenshot"))
+                file.SubCategory = MediaSubCategory.Screenshot;
+            else
+                file.SubCategory = MediaSubCategory.UnknownImage;
 
+            // Device detection
+            var meta = ExifHelper.ReadMetadata(file.FullPath);
             if (meta.HasValue)
             {
-                var (make, model, software) = meta.Value;
-
-                if (make?.Contains("Apple", StringComparison.OrdinalIgnoreCase) == true ||
-                    model?.Contains("iPhone", StringComparison.OrdinalIgnoreCase) == true ||
-                    software?.Contains("Apple", StringComparison.OrdinalIgnoreCase) == true)
+                var (make, model, _) = meta.Value;
+                if ((make?.Contains("Apple") ?? false) || (model?.Contains("iPhone") ?? false))
                 {
-                    file.SubCategory = MediaSubCategory.Iphone;
+                    file.DeviceModel = "iPhone";
+                    file.TertiaryCategory = MediaTertiaryCategory.iPhone;
                 }
-                else if (!string.IsNullOrWhiteSpace(make))
+                else
                 {
-                    file.SubCategory = MediaSubCategory.Android;
+                    file.DeviceModel = "Android";
+                    file.TertiaryCategory = MediaTertiaryCategory.Android;
                 }
             }
-        }
 
-        // ----------------------------
-        // 📱 Screenshots
-        // ----------------------------
-        if (file.Type == MediaType.Image && ext == ".png")
-        {
-            var coordinates = GpsHelper.GetCoordinates(file.FullPath);
-
-            bool looksLikeScreenshot =
-                lowerName.Contains("screenshot") ||
-                lowerName.Contains("screen_") ||
-                lowerName.Contains("skærm") ||
-                !coordinates.HasValue;
-
-            if (looksLikeScreenshot)
-            {
-                file.MainCategory = MediaMainCategory.Keep;
-                file.SubCategory = MediaSubCategory.Screenshot;
-                return;
-            }
-        }
-
-        // ----------------------------
-        // 🖼️ Images → Model / yyyy-MM / Location
-        // ----------------------------
-        if (file.Type == MediaType.Image)
-        {
-            if (ImageQualityHelper.IsBlurry(file.FullPath))
-            {
-                file.MainCategory = MediaMainCategory.Review;
-                file.SubCategory = MediaSubCategory.Blurry;
-                return;
-            }
-
-            var meta = ExifHelper.ReadMetadata(file.FullPath);
-            string model = meta?.Model ?? "Unknown";
-            model = model.Replace(" ", "_");
-
+            // Location detection
+            var coords = GpsHelper.GetCoordinates(file.FullPath);
             string locationFolder = "UnknownLocation";
-
-            var coordinates = GpsHelper.GetCoordinates(file.FullPath);
-            if (coordinates.HasValue)
+            if (coords.HasValue)
             {
-                var (lat, lng) = coordinates.Value;
-
-                if (LocationFilter.IsInAarhus(lat, lng))
-                    locationFolder = "Aarhus";
-                else if (LocationFilter.IsInSweden(lat, lng))
-                    locationFolder = "Sweden";
-                else if (LocationFilter.IsInJutlandMinusAarhus(lat, lng))
-                    locationFolder = "Jutland";
-                else if (LocationFilter.IsInSjaelland(lat, lng))
-                    locationFolder = "Sjaelland";
-                else if (LocationFilter.IsOutsideDenmarkAndSweden(lat, lng))
-                    locationFolder = "RestOfWorld";
+                var (lat, lng) = coords.Value;
+                if (LocationFilter.IsInAarhus(lat, lng)) locationFolder = "RegionMidtjylland";
+                else if (LocationFilter.IsInSjaelland(lat, lng)) locationFolder = "Sjaelland";
+                else if (LocationFilter.IsInJutlandMinusAarhus(lat, lng)) locationFolder = "Jutland";
+                else locationFolder = "OutsideDenmark";
             }
-
-            file.MainCategory = MediaMainCategory.Keep;
-            file.SubCategory = file.SubCategory;
-
-            file.DynamicFolder = Path.Combine(
-                "Images",
-                "Models",
-                model,
-                yearMonth,
-                locationFolder);
-
-            Console.WriteLine($"Image folder: {file.DynamicFolder}");
+            file.Location = locationFolder;
+            file.DynamicFolder = Path.Combine("Images", yearMonth, locationFolder);
             return;
         }
 
         // ----------------------------
-        // 🎥 Videos → yyyy-MM
+        // Video
         // ----------------------------
         if (file.Type == MediaType.Video)
         {
-            file.MainCategory = MediaMainCategory.Keep;
-            file.SubCategory = MediaSubCategory.IphoneVideo;
+            file.SubCategory = MediaSubCategory.UnknownVideo;
+
+            var meta = VideoMetadataHelper.ReadMetadata(file.FullPath);
+            if (meta.HasValue)
+            {
+                if (!string.IsNullOrEmpty(meta.Value.Model) && meta.Value.Model.Contains("iPhone"))
+                    file.TertiaryCategory = MediaTertiaryCategory.iPhone;
+                else
+                    file.TertiaryCategory = MediaTertiaryCategory.UnknownDevice;
+
+                if (meta.Value.Created.HasValue)
+                    file.CreatedAt = meta.Value.Created.Value;
+            }
 
             file.DynamicFolder = Path.Combine("Videos", yearMonth);
-
-            Console.WriteLine($"Video folder: {file.DynamicFolder}");
             return;
         }
 
         // ----------------------------
-        // 🎵 Music → Year
+        // Audio
         // ----------------------------
         if (file.Type == MediaType.Audio)
         {
-            file.MainCategory = MediaMainCategory.Keep;
-            file.SubCategory = MediaSubCategory.Unknown;
-
+            file.SubCategory = MediaSubCategory.UnknownAudio;
             file.DynamicFolder = Path.Combine("Music", yearOnly);
-
-            Console.WriteLine($"Music folder: {file.DynamicFolder}");
             return;
         }
 
         // ----------------------------
-        // 📄 Documents → Extension
+        // Documents
         // ----------------------------
         if (file.Type == MediaType.Document)
         {
-            file.MainCategory = MediaMainCategory.Keep;
-            file.SubCategory = MediaSubCategory.Unknown;
+            string extFolder = ext.TrimStart('.').ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(extFolder)) extFolder = "Unknown";
 
-            string extension = Path.GetExtension(file.FullPath)
-                .TrimStart('.')
-                .ToUpperInvariant();
+            file.SubCategory = extFolder switch
+            {
+                "PDF" => MediaSubCategory.Pdf,
+                "DOC" or "DOCX" => MediaSubCategory.Word,
+                "XLS" or "XLSX" => MediaSubCategory.Excel,
+                "TXT" => MediaSubCategory.Text,
+                "PPT" or "PPTX" => MediaSubCategory.Presentation,
+                _ => MediaSubCategory.UnknownDocument
+            };
 
-            if (string.IsNullOrWhiteSpace(extension))
-                extension = "Unknown";
-
-            file.DynamicFolder = Path.Combine("Documents", extension);
-
-            Console.WriteLine($"Document folder: {file.DynamicFolder}");
+            file.DynamicFolder = Path.Combine("Documents", extFolder);
             return;
         }
-
-        // ----------------------------
-        // 🧐 Everything else → Review
-        // ----------------------------
-        file.MainCategory = MediaMainCategory.Review;
-        file.SubCategory = MediaSubCategory.Unknown;
     }
 }
