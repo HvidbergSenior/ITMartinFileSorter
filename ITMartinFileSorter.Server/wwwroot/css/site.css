@@ -1,20 +1,105 @@
-﻿body {
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    margin: 20px;
-    background-color: #f5f5f5;
-}
-
-h3 {
+﻿/* Folder input */
+.folder-input {
     margin-bottom: 20px;
+}
+.folder-input input {
+    width: 300px;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+.folder-input button {
+    padding: 8px 12px;
+    margin-left: 5px;
+    border-radius: 6px;
+    border: none;
+    background-color: #0d6efd;
+    color: white;
+    cursor: pointer;
+}
+
+/* Large All Files box */
+.all-files-card {
+    background-color: #28a745; /* green */
+    color: white;
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 1.4em;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+/* Category cards (main/sub/tertiary) */
+.category-card {
+    padding: 15px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    text-align: center;
+    color: white;
+    margin-bottom: 10px;
+    transition: transform 0.15s;
+}
+.category-card:hover {
+    transform: scale(1.03);
+}
+
+/* Row styling for main categories */
+.main-category-row {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+/* Main category boxes */
+.main-category {
+    flex: 1 1 22%; /* 4 per row */
+    min-width: 180px;
+    text-align: center;
+}
+
+/* Subcategories */
+.sub-category {
+    margin-top: 5px;
+    margin-left: 10px;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+/* Tertiary categories */
+.tertiary-container {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: 20px;
+    margin-top: 5px;
+}
+.tertiary-box {
+    padding: 5px 10px;
+    margin: 3px;
+    border-radius: 6px;
+    background-color: #f0f0f0;
     color: #333;
+    font-size: 0.85em;
 }
 
-li span {
-    font-family: monospace;
-    color: #555;
+/* Thumbnails */
+.thumbnail-box {
+    width: 100px;
+    height: 100px;
+    overflow: hidden;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    margin: 3px;
+}
+.thumbnail-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
-p[role="status"] {
-    font-style: italic;
-    color: #666;
-}
+/* Colors */
+.category-image { background-color: #28a745; }   /* green */
+.category-video { background-color: #dc3545; }   /* red */
+.category-audio { background-color: #6f42c1; }   /* purple */
+.category-document { background-color: #0d6efd; }/* blue */
