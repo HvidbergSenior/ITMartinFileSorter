@@ -6,24 +6,23 @@
         Audio = 0,
         Video = 1,
         Document = 2,
-        Image = 3
+        Image = 3,
+        Duplicate
+        
     }
 
     // Type-specific subcategories
     public enum MediaSubCategory
     {
-        Duplicate,  // secondary flag for duplicates
 
         // Audio
         Music,
-        Podcast,
         VoiceMemo,
         UnknownAudio,
 
         // Video
         Movie,
         Clip,
-        Tutorial,
         ScreenRecording,
         UnknownVideo,
 
@@ -37,9 +36,7 @@
 
         // Image
         Screenshot,
-        iPhoneScreenshot,
-        AndroidScreenshot,
-        Edited,
+        PhoneScreenshot,
         UnknownImage
     }
 
@@ -48,23 +45,17 @@
     {
         // Location
         RegionMidtjylland,
-        Jutland,
+        Jylland,
         Sjaelland,
-        OutsideDenmark,
+        UdenforDenmark,
         UnknownLocation,
 
         // Device
         iPhone,
         Android,
-        DSLR,
-        GoPro,
         UnknownDevice,
 
-        // Duplicate
-        Duplicate,
-
         // Other
-        Edited,
         Unknown
     }
 

@@ -34,36 +34,76 @@ public sealed class FileScanner : IFileScanner
     };
 
     public IEnumerable<MediaFile> ScanFolder(string rootPath)
+{
+    foreach (var file in Directory.EnumerateFiles(rootPath, "*.*", _options))
     {
-        foreach (var file in Directory.EnumerateFiles(rootPath, "*.*", _options))
+        var extension = Path.GetExtension(file).ToLowerInvariant();
+
+        var isImage = ImageExtensions.Contains(extension);
+        var isVideo = VideoExtensions.Contains(extension);
+        var isAudio = AudioExtensions.Contains(extension);
+        var isDocument = DocumentExtensions.Contains(extension);
+
+        if (!isImage && !isVideo && !isAudio && !isDocument) continue;
+
+        FileInfo info;
+        try { info = new FileInfo(file); }
+        catch { continue; }
+
+        var type = isImage ? MediaType.Image
+                  : isVideo ? MediaType.Video
+                  : isAudio ? MediaType.Audio
+                  : MediaType.Document;
+
+        var mediaFile = new MediaFile(
+            fullPath: file,
+            createdAt: info.LastWriteTimeUtc,
+            type: type,
+            sizeBytes: info.Length
+        );
+
+        // --- Assign proper subcategory ---
+        if (type == MediaType.Image)
         {
-            var extension = Path.GetExtension(file).ToLowerInvariant();
-
-            var isImage = ImageExtensions.Contains(extension);
-            var isVideo = VideoExtensions.Contains(extension);
-            var isAudio = AudioExtensions.Contains(extension);
-            var isDocument = DocumentExtensions.Contains(extension);
-
-            if (!isImage && !isVideo && !isAudio && !isDocument) continue;
-
-            FileInfo info;
-            try { info = new FileInfo(file); }
-            catch { continue; }
-
-            var type = isImage ? MediaType.Image
-                      : isVideo ? MediaType.Video
-                      : isAudio ? MediaType.Audio
-                      : MediaType.Document;
-
-            // Create MediaFile without dynamicFolder
-            var mediaFile = new MediaFile(
-                fullPath: file,
-                createdAt: info.LastWriteTimeUtc,
-                type: type,
-                sizeBytes: info.Length
-            );
-
-            yield return mediaFile;
+            mediaFile.SubCategory = extension switch
+            {
+                ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif" => MediaSubCategory.Screenshot,
+                ".heic" or ".heif" => MediaSubCategory.PhoneScreenshot,
+                _ => MediaSubCategory.UnknownImage
+            };
         }
+        else if (type == MediaType.Video)
+        {
+            mediaFile.SubCategory = extension switch
+            {
+                ".mp4" or ".mov" => MediaSubCategory.Movie,
+                ".avi" or ".mkv" or ".wmv" => MediaSubCategory.Clip,
+                _ => MediaSubCategory.UnknownVideo
+            };
+        }
+        else if (type == MediaType.Audio)
+        {
+            mediaFile.SubCategory = extension switch
+            {
+                ".mp3" or ".flac" => MediaSubCategory.Music,
+                ".wav" or ".aac" => MediaSubCategory.VoiceMemo,
+                _ => MediaSubCategory.UnknownAudio
+            };
+        }
+        else if (type == MediaType.Document)
+        {
+            mediaFile.SubCategory = extension switch
+            {
+                ".pdf" => MediaSubCategory.Pdf,
+                ".doc" or ".docx" => MediaSubCategory.Word,
+                ".xls" or ".xlsx" => MediaSubCategory.Excel,
+                ".txt" => MediaSubCategory.Text,
+                ".ppt" or ".pptx" => MediaSubCategory.Presentation,
+                _ => MediaSubCategory.UnknownDocument
+            };
+        }
+
+        yield return mediaFile;
     }
+}
 }

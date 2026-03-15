@@ -22,13 +22,13 @@ public class MediaCategorizer
         {
             // Screenshot detection
             if (ext == ".heic" && fileName.Contains("img"))
-                file.SubCategory = MediaSubCategory.iPhoneScreenshot;
+                file.SubCategory = MediaSubCategory.PhoneScreenshot;
             else if (fileName.Contains("screenshot"))
                 file.SubCategory = MediaSubCategory.Screenshot;
             else
                 file.SubCategory = MediaSubCategory.UnknownImage;
 
-            // Device detection
+            // Device detection via EXIF
             var meta = ExifHelper.ReadMetadata(file.FullPath);
             if (meta.HasValue)
             {
@@ -53,9 +53,10 @@ public class MediaCategorizer
                 var (lat, lng) = coords.Value;
                 if (LocationFilter.IsInAarhus(lat, lng)) locationFolder = "RegionMidtjylland";
                 else if (LocationFilter.IsInSjaelland(lat, lng)) locationFolder = "Sjaelland";
-                else if (LocationFilter.IsInJutlandMinusAarhus(lat, lng)) locationFolder = "Jutland";
-                else locationFolder = "OutsideDenmark";
+                else if (LocationFilter.IsInJutlandMinusAarhus(lat, lng)) locationFolder = "Jylland";
+                else locationFolder = "UdenforDenmark";
             }
+
             file.Location = locationFolder;
             file.DynamicFolder = Path.Combine("Images", yearMonth, locationFolder);
             return;
