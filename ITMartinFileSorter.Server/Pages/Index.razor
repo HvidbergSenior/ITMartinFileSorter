@@ -8,7 +8,7 @@
 <h3>Media File Browser</h3>
 
 <!-- Folder input -->
-<div class="folder-input d-flex">
+<div class="folder-input d-flex mb-3">
     <input type="text" @bind="FolderPath" placeholder="Enter folder path..." class="form-control me-2" />
     <button class="btn btn-primary" @onclick="ScanFolder">Scan</button>
 </div>
@@ -23,54 +23,55 @@ else if (!AllFiles.Any())
 }
 else
 {
-    <!-- 1) Large All Files -->
-    <div class="all-files-card">
+    <!-- Large All Files Box -->
+    <div class="all-files-card mb-3">
         <strong>All Files:</strong> @AllFiles.Count files, @FormatSize(AllFiles.Sum(f => f.SizeBytes))
     </div>
 
-    <!-- 2) Main categories -->
-    <div class="main-category-row">
+    <!-- Main categories -->
+    <div class="d-flex mb-3 gap-2">
         @foreach (var mainCat in MainCategories)
         {
-            <div class="main-category category-card @CategoryColorHelper.GetColor(mainCat.Key)" @onclick="() => ToggleMain(mainCat.Key)">
+            <div class="main-category category-card @CategoryColorHelper.GetColor(mainCat.Key)" 
+                 @onclick="() => ToggleMain(mainCat.Key)">
                 <strong>@mainCat.Key</strong><br />
                 @mainCat.Value.Count files, @FormatSize(mainCat.Value.Sum(f => f.SizeBytes))
 
                 @if (ExpandedMain == mainCat.Key)
                 {
-                    <!-- Subcategories -->
-                    @foreach (var subCat in mainCat.Value.GroupBy(f => f.SubCategory))
-                    {
-                        <div class="sub-category category-card @CategoryColorHelper.GetColor(mainCat.Key)" 
-                             @onclick="() => ToggleSub(subCat.Key)">
-                            <strong>@subCat.Key</strong><br />
-                            @subCat.Count() files, @FormatSize(subCat.Sum(f => f.SizeBytes))
+                    <div class="sub-category-container mt-2">
+                        @foreach (var subCat in mainCat.Value.GroupBy(f => f.SubCategory))
+                        {
+                            <button class="sub-category category-card @CategoryColorHelper.GetColor(mainCat.Key)"
+                                    @onclick="() => ToggleSub(subCat.Key)"
+                                    @onclick:stopPropagation>
+                                <strong>@subCat.Key</strong><br />
+                                @subCat.Count() files, @FormatSize(subCat.Sum(f => f.SizeBytes))
 
-                            @if (ExpandedSub == subCat.Key)
-                            {
-                                <!-- Tertiary -->
-                                <div class="tertiary-container">
-                                    @foreach (var tertCat in subCat.GroupBy(f => f.TertiaryCategory))
-                                    {
-                                        <div class="tertiary-box">
-                                            <strong>@tertCat.Key</strong><br />
-                                            @tertCat.Count() files, @FormatSize(tertCat.Sum(f => f.SizeBytes))
+                                @if (ExpandedSub == subCat.Key)
+                                {
+                                    <div class="tertiary-container mt-2">
+                                        @foreach (var tertCat in subCat.GroupBy(f => f.TertiaryCategory))
+                                        {
+                                            <div class="tertiary-box" @onclick:stopPropagation>
+                                                <strong>@tertCat.Key</strong><br />
+                                                @tertCat.Count() files, @FormatSize(tertCat.Sum(f => f.SizeBytes))
 
-                                            <!-- Thumbnails -->
-                                            <div class="d-flex flex-wrap mt-1">
-                                                @foreach (var file in tertCat)
-                                                {
-                                                    <div class="thumbnail-box">
-                                                        <img src="@file.FullPath" alt="" />
-                                                    </div>
-                                                }
+                                                <div class="d-flex flex-wrap mt-1">
+                                                    @foreach (var file in tertCat)
+                                                    {
+                                                        <div class="thumbnail-box me-1 mb-1">
+                                                            <img src="/api/media?path=@Uri.EscapeDataString(file.FullPath)" alt="" />
+                                                        </div>
+                                                    }
+                                                </div>
                                             </div>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    }
+                                        }
+                                    </div>
+                                }
+                            </button>
+                        }
+                    </div>
                 }
             </div>
         }
@@ -89,12 +90,15 @@ else
     {
         if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
         {
-            AllFiles = new List<MediaFile>();
+            AllFiles.Clear();
             MainCategories.Clear();
+            ExpandedMain = null;
+            ExpandedSub = null;
             return;
         }
 
         AllFiles = FileScanner.ScanFolder(FolderPath).ToList();
+
         DuplicateHelper.ResetCache();
         foreach (var file in AllFiles) DuplicateHelper.IsDuplicate(file);
 
@@ -127,8 +131,10 @@ else
 
     private void ToggleSub(MediaSubCategory sub)
     {
-        if (ExpandedSub == sub) ExpandedSub = null;
-        else ExpandedSub = sub;
+        if (ExpandedSub == sub)
+            ExpandedSub = null;
+        else
+            ExpandedSub = sub;
     }
 
     private string FormatSize(long bytes)

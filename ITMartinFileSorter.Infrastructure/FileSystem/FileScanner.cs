@@ -1,7 +1,6 @@
 ﻿using ITMartinFileSorter.Domain.Entities;
 using ITMartinFileSorter.Domain.Enums;
 using ITMartinFileSorter.Domain.Interfaces;
-using System.IO;
 
 namespace ITMartinFileSorter.Infrastructure.FileSystem;
 

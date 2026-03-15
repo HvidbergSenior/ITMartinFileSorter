@@ -21,6 +21,8 @@ public class MediaController : ControllerBase
         if (!provider.TryGetContentType(path, out var contentType))
             contentType = "application/octet-stream";
 
-        return PhysicalFile(path, contentType);
+        var stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+
+        return File(stream, contentType);
     }
 }
