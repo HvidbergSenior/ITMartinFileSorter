@@ -58,7 +58,6 @@ public sealed class FileScanner : IFileScanner
             // Create MediaFile without dynamicFolder
             var mediaFile = new MediaFile(
                 fullPath: file,
-                size: info.Length,
                 createdAt: info.LastWriteTimeUtc,
                 type: type,
                 sizeBytes: info.Length

@@ -5,8 +5,13 @@ namespace ITMartinFileSorter.Domain.Entities;
 public class MediaFile
 {
     public string FullPath { get; }
+
+    public string FileName => Path.GetFileName(FullPath);
+
     public long SizeBytes { get; set; }
+
     public DateTime CreatedAt { get; set; }
+
     public MediaType Type { get; }
 
     // Categorization
@@ -21,12 +26,13 @@ public class MediaFile
 
     public string? DynamicFolder { get; set; }
 
-    // --- Video-specific metadata ---
+    // Video metadata
     public long? DurationMs { get; private set; }
     public int? Width { get; private set; }
     public int? Height { get; private set; }
-
-    public MediaFile(string fullPath, long size, DateTime createdAt, MediaType type, long sizeBytes)
+    public string Extension => Path.GetExtension(FullPath).ToLower();
+    
+    public MediaFile(string fullPath, DateTime createdAt, MediaType type, long sizeBytes)
     {
         FullPath = fullPath;
         SizeBytes = sizeBytes;

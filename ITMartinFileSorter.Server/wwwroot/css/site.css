@@ -1,22 +1,6 @@
-﻿/* Folder input */
-.folder-input input {
-    width: 300px;
-    padding: 8px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-}
-.folder-input button {
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: none;
-    background-color: #0d6efd;
-    color: white;
-    cursor: pointer;
-}
-
-/* All files large box */
+﻿/* BIG MAIN CARD */
 .all-files-card {
-    background-color: #28a745; /* green */
+    background-color: #28a745;
     color: white;
     padding: 20px;
     border-radius: 12px;
@@ -25,38 +9,56 @@
     font-weight: bold;
 }
 
-/* Main category cards */
+/* FOUR MAIN CATEGORY BOXES */
 .main-category-row {
     display: flex;
-    gap: 10px;
+    gap: 16px;
     flex-wrap: wrap;
 }
 
-.category-card {
-    padding: 15px;
-    border-radius: 10px;
-    font-weight: bold;
-    text-align: center;
+.main-category-box {
+    flex: 1;                /* fill row equally */
+    min-width: 180px;
+    padding: 18px;
+    border-radius: 12px;
     color: white;
+    text-align: center;
+    font-weight: bold;
     cursor: pointer;
-    transition: transform 0.15s;
+    transition: transform 0.15s, box-shadow 0.15s;
 }
-.category-card:hover {
-    transform: scale(1.03);
+.main-category-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
 }
 
-/* Main category colors */
-.category-image { background-color: #28a745; }   /* green */
-.category-video { background-color: #dc3545; }   /* red */
-.category-audio { background-color: #6f42c1; }   /* purple */
-.category-document { background-color: #0d6efd; }/* blue */
+/* SUBCATEGORY ROW */
+.sub-category-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.sub-category-box {
+    flex: 1;
+    min-width: 140px;
+    padding: 14px;
+    border-radius: 10px;
+    color: white;
+    text-align: center;
+    font-weight: 500;
+    cursor: pointer;
+}
+.sub-category-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
 
-/* Subcategories */
-.sub-category-container { margin-top: 5px; }
-.sub-category { display: block; margin: 3px 0; padding: 8px 12px; border-radius: 6px; color: white; border: none; }
-.tertiary-container { display: flex; flex-wrap: wrap; margin-left: 20px; margin-top: 5px; }
-.tertiary-box { padding: 5px 10px; margin: 3px; border-radius: 6px; background-color: #f0f0f0; color: #333; }
+/* CATEGORY COLORS */
+.category-image { background-color: #28a745; }
+.category-video { background-color: #dc3545; }
+.category-audio { background-color: #6f42c1; }
+.category-document { background-color: #0d6efd; }
 
-/* Thumbnails */
-.thumbnail-box { width: 100px; height: 100px; overflow: hidden; border: 1px solid #ccc; border-radius: 6px; margin: 2px; }
-.thumbnail-box img { width: 100%; height: 100%; object-fit: cover; }
+/* FOLDER INPUT */
+input.form-control { border-radius: 8px; }
+button.btn-primary { border-radius: 8px; }

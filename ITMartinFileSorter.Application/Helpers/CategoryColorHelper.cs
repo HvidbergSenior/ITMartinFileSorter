@@ -8,11 +8,23 @@ public static class CategoryColorHelper
     {
         return category switch
         {
-            MediaMainCategory.Image => "category-image",      // green
-            MediaMainCategory.Video => "category-video",      // orange
-            MediaMainCategory.Audio => "category-audio",      // blue
-            MediaMainCategory.Document => "category-document",// purple
-            _ => ""
+            MediaMainCategory.Image => "category-image",
+            MediaMainCategory.Video => "category-video",
+            MediaMainCategory.Audio => "category-audio",
+            MediaMainCategory.Document => "category-document",
+            _ => "category-default"
+        };
+    }
+
+    public static string GetIcon(MediaMainCategory category)
+    {
+        return category switch
+        {
+            MediaMainCategory.Image => "🖼",
+            MediaMainCategory.Video => "🎬",
+            MediaMainCategory.Audio => "🎵",
+            MediaMainCategory.Document => "📄",
+            _ => "📁"
         };
     }
 }
