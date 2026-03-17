@@ -9,6 +9,9 @@ public class DuplicateService
     public List<MediaFile> AllFiles { get; set; } = new();
     public List<List<MediaFile>> DuplicateGroups { get; set; } = new();
 
-    // NEW: count of duplicates automatically removed
+    // Count of duplicates automatically removed
     public int DuplicatesRemoved { get; set; } = 0;
+
+    // NEW: track if duplicates were handled
+    public bool DuplicatesHandled { get; set; } = false;
 }

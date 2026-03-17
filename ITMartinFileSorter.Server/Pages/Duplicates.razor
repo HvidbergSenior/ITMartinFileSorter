@@ -1,73 +1,143 @@
 ﻿@page "/duplicates"
 @using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Domain.Entities
 @inject DuplicateService DuplicateService
+@inject NavigationManager Navigation
 
 <div class="container mt-4">
-    <a class="btn btn-secondary mb-3" href="/">← Back to Home</a>
+    <h4>Step 1: Handle Duplicates</h4>
+    <p>All duplicates must be handled before continuing.</p>
 
-    @if (DuplicateGroups == null || DuplicateGroups.Count == 0)
+    @if (DuplicateService.DuplicateGroups.Any(g => g.Count > 1))
     {
-        <p>No duplicates to show. Go back and scan a folder first.</p>
+        <div class="mb-3">
+            <button class="btn btn-warning me-2" @onclick="PickBestForRemaining">
+                Pick Best for Remaining
+            </button>
+        </div>
+    }
+
+    @if (!DuplicateService.DuplicateGroups.Any() || DuplicateService.DuplicateGroups.All(g => g.Count <= 1))
+    {
+        <div class="alert alert-success">
+            No duplicates remaining.
+            <a class="btn btn-sm btn-primary ms-2" @onclick="GoBack">Continue</a>
+        </div>
     }
     else
     {
-        <h4>Duplicate Files</h4>
-
-        @foreach (var group in DuplicateGroups)
+        @foreach (var group in DuplicateService.DuplicateGroups.Where(g => g.Count > 1))
         {
+            var best = group.OrderByDescending(f => f.SizeBytes).First();
+
             <div class="duplicate-group mb-3 border p-2">
                 <div class="d-flex gap-2 flex-wrap align-items-start">
                     @foreach (var file in group)
                     {
-                        <div class="file-card text-center p-2" style="width:150px; border:1px solid #ccc;">
-                            <img src="@GetThumbnail(file.WorkingPath)" 
+                        <div class="file-card text-center p-2"
+                             style="width:160px; border:2px solid @(file == best ? "green" : "#ccc");">
+
+                            <img src="@GetThumbnail(file.WorkingPath)"
                                  style="width:100%; height:100px; object-fit:cover;" />
-                            <div style="font-size:0.8em;">@Path.GetFileName(file.FullPath)</div>
-                            <button class="btn btn-sm btn-danger mt-1" @onclick="() => DeleteFile(file)">Delete</button>
+
+                            <div style="font-size:0.8em;">
+                                @Path.GetFileName(file.FullPath)<br />
+                                @FormatSize(file.SizeBytes)
+                            </div>
+
+                            @if (file == best)
+                            {
+                                <div class="text-success" style="font-size:0.75em;">BEST</div>
+                            }
+
+                            <button class="btn btn-sm btn-success mt-1"
+                                    @onclick="() => Keep(file, group)">
+                                Keep
+                            </button>
+
+                            <button class="btn btn-sm btn-danger mt-1"
+                                    @onclick="() => DeleteFile(file)">
+                                Delete
+                            </button>
                         </div>
                     }
                 </div>
-                @if (group.Count > 1)
-                {
-                    <button class="btn btn-warning btn-sm mt-2" @onclick="() => DeleteAllButOne(group)">
-                        Delete All But First
-                    </button>
-                }
+
+                <button class="btn btn-warning btn-sm mt-2" @onclick="() => Keep(best, group)">
+                    Keep Best (auto)
+                </button>
             </div>
         }
     }
 </div>
 
 @code {
-    List<MediaFile> AllFiles => DuplicateService.AllFiles;
-    List<List<MediaFile>> DuplicateGroups => DuplicateService.DuplicateGroups;
+    void PickBestForRemaining()
+    {
+        foreach (var group in DuplicateService.DuplicateGroups.Where(g => g.Count > 1))
+        {
+            var best = group.OrderByDescending(f => f.SizeBytes).First();
+            Keep(best, group);
+        }
+
+        DuplicateService.DuplicatesHandled = true;
+        StateHasChanged();
+    }
+
+    void Keep(MediaFile selected, List<MediaFile> group)
+    {
+        var toDelete = group.Where(f => f != selected).ToList();
+        foreach (var file in toDelete)
+            DeleteFile(file);
+
+        group.Clear();
+        group.Add(selected);
+        StateHasChanged();
+    }
 
     void DeleteFile(MediaFile file)
     {
-        if (!string.IsNullOrEmpty(file.WorkingPath) && File.Exists(file.WorkingPath))
-            File.Delete(file.WorkingPath);
+        try
+        {
+            if (!string.IsNullOrEmpty(file.WorkingPath) && File.Exists(file.WorkingPath))
+                File.Delete(file.WorkingPath);
+        }
+        catch { }
 
-        foreach (var group in DuplicateGroups)
+        foreach (var group in DuplicateService.DuplicateGroups)
             group.Remove(file);
 
-        AllFiles.Remove(file);
+        DuplicateService.AllFiles.Remove(file);
+        StateHasChanged();
     }
 
-    void DeleteAllButOne(List<MediaFile> group)
+    void GoBack()
     {
-        for (int i = 1; i < group.Count; i++)
-            DeleteFile(group[i]);
+        Navigation.NavigateTo("/");
     }
 
     string GetThumbnail(string? path)
     {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
             return "_content/placeholder.png";
 
         var ext = Path.GetExtension(path).ToLowerInvariant();
-        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif" or ".heic" or ".heif" or ".avif")
-            return path;
-        else
-            return "_content/file-icon.png";
+
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" 
+            or ".tiff" or ".tif" or ".heic" or ".heif" or ".avif")
+        {
+            var urlPath = Uri.EscapeDataString(path.Replace("\\","/"));
+            return $"/api/media?path={urlPath}";
+        }
+
+        return "_content/file-icon.png";
+    }
+
+    string FormatSize(long bytes)
+    {
+        if (bytes > 1_000_000_000) return $"{bytes / 1_000_000_000.0:F2} GB";
+        if (bytes > 1_000_000) return $"{bytes / 1_000_000.0:F2} MB";
+        if (bytes > 1_000) return $"{bytes / 1_000.0:F2} KB";
+        return $"{bytes} B";
     }
 }

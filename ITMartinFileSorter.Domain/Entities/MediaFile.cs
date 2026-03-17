@@ -41,6 +41,9 @@ public class MediaFile
     public int? Width { get; private set; }
     public int? Height { get; private set; }
 
+    // Tracks whether user wants to keep the file in the workflow
+    public bool Keep { get; set; } = false;
+    
     public MediaFile(string fullPath, DateTime createdAt, MediaType type, long sizeBytes)
     {
         FullPath = fullPath;

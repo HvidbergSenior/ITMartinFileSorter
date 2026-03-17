@@ -1,0 +1,213 @@
+﻿@page "/category-step/{CategoryString}"
+@using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Domain.Entities
+@using ITMartinFileSorter.Domain.Enums
+@inject DuplicateService DuplicateService
+@inject NavigationManager Navigation
+
+<div class="container mt-4">
+    <a class="btn btn-secondary mb-3" href="/">← Back to Home</a>
+    <h4>Step: @CurrentCategory</h4>
+
+    @if (SubGroups != null && SubGroups.Any())
+    {
+        <div class="d-flex gap-3 flex-wrap mb-3">
+            @foreach (var key in SubGroups.Keys)
+            {
+                <div class="category-box text-center p-3"
+                     style="cursor:pointer; background-color:@GetColor(CurrentCategory); border-radius:5px; width:150px;"
+                     @onclick="() => ToggleSubGroup(key)">
+                    <strong>@key</strong><br />
+                    @SubGroups[key].Count files
+                </div>
+            }
+        </div>
+    }
+
+    @if (ExpandedSubKey != null && SubGroups.ContainsKey(ExpandedSubKey))
+    {
+        <div class="d-flex gap-2 flex-wrap mb-3">
+            @foreach (var file in SubGroups[ExpandedSubKey])
+            {
+                <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
+                    <img src="@GetThumbnail(file.WorkingPath)" style="width:100%; height:80px; object-fit:cover;" />
+                    <div style="font-size:0.75em;">@Path.GetFileName(file.FullPath)</div>
+                    <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file)">Keep</button>
+                    <button class="btn btn-sm btn-danger mt-1" @onclick="() => Delete(file)">Delete</button>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="mt-3">
+        @if (CanMoveNext)
+        {
+            <button class="btn btn-primary" @onclick="GoNext">Next Category →</button>
+            <button class="btn btn-success ms-2" @onclick="ExportStructured">Finish & Export</button>
+        }
+        else
+        {
+            <div class="alert alert-warning">You must handle all files in this category before continuing.</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string CategoryString { get; set; } = MediaMainCategory.Document.ToString();
+
+    private MediaMainCategory CurrentCategory { get; set; }
+
+    Dictionary<string, List<MediaFile>> SubGroups = new();
+    string? ExpandedSubKey;
+
+    bool CanMoveNext => SubGroups.All(g => g.Value.Count <= 1);
+
+    protected override void OnInitialized()
+    {
+        // Parse enum safely
+        if (!Enum.TryParse<MediaMainCategory>(CategoryString, true, out var cat))
+            cat = MediaMainCategory.Document;
+
+        CurrentCategory = cat;
+
+        // Get files that are marked to keep
+        var files = DuplicateService.AllFiles
+            .Where(f => f.MainCategory == CurrentCategory && f.Keep)
+            .ToList();
+
+        // Group files
+        if (CurrentCategory == MediaMainCategory.Document || CurrentCategory == MediaMainCategory.Audio)
+        {
+            SubGroups = files
+                .GroupBy(f => Path.GetExtension(f.FullPath).ToLowerInvariant())
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+        else if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
+        {
+            // Group by year initially
+            SubGroups = files
+                .GroupBy(f => f.Year.ToString())
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+    }
+
+    void ToggleSubGroup(string key)
+    {
+        if (ExpandedSubKey == key)
+        {
+            ExpandedSubKey = null;
+            return;
+        }
+
+        ExpandedSubKey = key;
+
+        // Drill down to months if Image or Video
+        if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
+        {
+            var yearFiles = SubGroups[key];
+            var monthGroups = yearFiles
+                .GroupBy(f => f.Month)
+                .ToDictionary(g => g.Key.ToString("D2"), g => g.ToList());
+
+            if (monthGroups.Count > 1)
+            {
+                SubGroups = monthGroups;
+                ExpandedSubKey = null;
+            }
+        }
+    }
+
+    void Keep(MediaFile file)
+    {
+        file.Keep = true;
+        if (ExpandedSubKey != null)
+            SubGroups[ExpandedSubKey].Remove(file);
+    }
+
+    void Delete(MediaFile file)
+    {
+        file.Keep = false;
+        if (ExpandedSubKey != null)
+            SubGroups[ExpandedSubKey].Remove(file);
+
+        // Mark file as deleted but do NOT delete from disk yet
+        StateHasChanged();
+    }
+
+    void GoNext()
+    {
+        var nextCategory = CurrentCategory switch
+        {
+            MediaMainCategory.Document => MediaMainCategory.Audio,
+            MediaMainCategory.Audio => MediaMainCategory.Image,
+            MediaMainCategory.Image => MediaMainCategory.Video,
+            _ => MediaMainCategory.Video
+        };
+
+        Navigation.NavigateTo($"/category-step/{nextCategory}");
+    }
+
+    void ExportStructured()
+    {
+        var structuredRoot = Path.Combine(DuplicateService.FolderPath, "Structured");
+        var folders = new[]
+        {
+            Path.Combine(structuredRoot, "Documents"),
+            Path.Combine(structuredRoot, "Audio"),
+            Path.Combine(structuredRoot, "Images"),
+            Path.Combine(structuredRoot, "Videos")
+        };
+
+        foreach (var f in folders)
+            Directory.CreateDirectory(f);
+
+        foreach (var file in DuplicateService.AllFiles.Where(f => f.Keep))
+        {
+            string destFolder = file.MainCategory switch
+            {
+                MediaMainCategory.Document => Path.Combine(structuredRoot, "Documents"),
+                MediaMainCategory.Audio => Path.Combine(structuredRoot, "Audio"),
+                MediaMainCategory.Image => Path.Combine(structuredRoot, "Images"),
+                MediaMainCategory.Video => Path.Combine(structuredRoot, "Videos"),
+                _ => Path.Combine(structuredRoot, "Others")
+            };
+
+            string dest = Path.Combine(destFolder, file.FileName);
+            int count = 1;
+            while (File.Exists(dest))
+            {
+                string nameOnly = Path.GetFileNameWithoutExtension(file.FileName);
+                string ext = Path.GetExtension(file.FileName);
+                dest = Path.Combine(destFolder, $"{nameOnly}_{count}{ext}");
+                count++;
+            }
+
+            File.Copy(file.FullPath, dest);
+        }
+
+        Console.WriteLine($"Export complete: {structuredRoot}");
+    }
+
+    string GetColor(MediaMainCategory cat) => cat switch
+    {
+        MediaMainCategory.Audio => "#6f42c1",
+        MediaMainCategory.Video => "#dc3545",
+        MediaMainCategory.Document => "#0d6efd",
+        MediaMainCategory.Image => "#28a745",
+        _ => "#6c757d"
+    };
+
+    string GetThumbnail(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return "_content/placeholder.png";
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" 
+            or ".tiff" or ".tif" or ".heic" or ".heif" or ".avif")
+            return $"/api/media?path={Uri.EscapeDataString(path)}";
+
+        return "_content/file-icon.png";
+    }
+}
