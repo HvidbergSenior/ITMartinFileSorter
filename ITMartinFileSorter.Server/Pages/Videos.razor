@@ -1,0 +1,33 @@
+﻿@page "/videos"
+
+@using ITMartinFileSorter.Domain.Enums
+@using ITMartinFileSorter.Domain.Entities
+@using ITMartinFileSorter.Application.Services
+
+@inject DuplicateService DuplicateService
+
+<h3>Videos</h3>
+
+<div class="d-flex flex-wrap gap-3">
+
+    @foreach (var group in VideoFiles.GroupBy(f => f.SubCategory))
+    {
+        <div class="all-files-card p-3 text-center"
+             style="width:200px">
+
+            <strong>@group.Key</strong>
+            <div>@group.Count() files</div>
+
+        </div>
+    }
+
+</div>
+
+@code {
+
+    List<MediaFile> VideoFiles =>
+        DuplicateService.AllFiles
+            .Where(f => f.MainCategory == MediaMainCategory.Video)
+            .ToList();
+
+}

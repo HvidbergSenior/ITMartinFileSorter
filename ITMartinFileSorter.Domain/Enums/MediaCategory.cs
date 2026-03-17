@@ -7,37 +7,45 @@
         Video = 1,
         Document = 2,
         Image = 3,
-        Duplicate
-        
+        Duplicate = 4
     }
 
     // Type-specific subcategories
     public enum MediaSubCategory
     {
-
-        // Audio
+        // ---------------- AUDIO ----------------
         Music,
         VoiceMemo,
         UnknownAudio,
 
-        // Video
+        // ---------------- VIDEO ----------------
         Movie,
         Clip,
         ScreenRecording,
+        PhoneVideo,
+        OtherVideo,
         UnknownVideo,
 
-        // Document
+        // ---------------- DOCUMENT ----------------
         Pdf,
         Word,
         Excel,
         Text,
         Presentation,
+        Csv,
         UnknownDocument,
 
-        // Image
+        // ---------------- IMAGE ----------------
         Screenshot,
-        PhoneScreenshot,
-        UnknownImage
+        Camera,
+        PhonePhoto,
+        OtherImage,
+        UnknownImage,
+
+        // ---------------- SOURCE ----------------
+        Download,
+        WhatsApp,
+        Telegram
     }
 
     // Tertiary categories: finer classification

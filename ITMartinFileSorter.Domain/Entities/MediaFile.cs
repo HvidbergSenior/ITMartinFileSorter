@@ -6,13 +6,23 @@ public class MediaFile
 {
     public string FullPath { get; }
 
-    public string FileName => Path.GetFileName(FullPath);
+    public string OriginalPath { get; }
+
+    public string FileName { get; }
+
+    public string Extension { get; }
 
     public long SizeBytes { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
+    public int Year { get; set; }
+
+    public int Month { get; set; }
+
     public MediaType Type { get; }
+
+    public string? WorkingPath { get; set; }  // points to the temporary copy
 
     // Categorization
     public MediaMainCategory MainCategory { get; set; }
@@ -30,13 +40,21 @@ public class MediaFile
     public long? DurationMs { get; private set; }
     public int? Width { get; private set; }
     public int? Height { get; private set; }
-    public string Extension => Path.GetExtension(FullPath).ToLower();
-    
+
     public MediaFile(string fullPath, DateTime createdAt, MediaType type, long sizeBytes)
     {
         FullPath = fullPath;
+        OriginalPath = fullPath;
+
+        FileName = Path.GetFileName(fullPath);
+        Extension = Path.GetExtension(fullPath);
+
         SizeBytes = sizeBytes;
         CreatedAt = createdAt;
+
+        Year = createdAt.Year;
+        Month = createdAt.Month;
+
         Type = type;
 
         MainCategory = type switch
@@ -60,7 +78,10 @@ public class MediaFile
         TertiaryCategory = MediaTertiaryCategory.Unknown;
     }
 
-    public void SetHash(string hash) => Hash = hash;
+    public void SetHash(string hash)
+    {
+        Hash = hash;
+    }
 
     public void SetVideoMetadata(long? durationMs, int? width, int? height)
     {

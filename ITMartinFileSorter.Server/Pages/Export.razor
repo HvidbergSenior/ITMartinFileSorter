@@ -1,0 +1,56 @@
+﻿@page "/export"
+@inject DuplicateService DuplicateService
+@using ITMartinFileSorter.Application.Services
+@using Microsoft.AspNetCore.Components.Forms
+
+<div class="container mt-4">
+    <h4>Export Organized Folder</h4>
+
+    <InputText @bind-Value="OutputFolder" placeholder="Enter output folder path..." class="form-control mb-2" />
+    <button class="btn btn-success" @onclick="ExportFiles">Export</button>
+
+    @if (!string.IsNullOrEmpty(Message))
+    {
+        <p>@Message</p>
+    }
+</div>
+
+@code {
+    string OutputFolder = "";
+    string Message = "";
+
+    void ExportFiles()
+    {
+        if (string.IsNullOrWhiteSpace(OutputFolder) || !Directory.Exists(OutputFolder))
+        {
+            Message = "Output folder is invalid.";
+            return;
+        }
+
+        DirectoryCopy(DuplicateService.WorkingFolder, OutputFolder, true);
+        Message = "Export completed!";
+    }
+
+    static void DirectoryCopy(string sourceDir, string destDir, bool copySubDirs)
+    {
+        var dir = new DirectoryInfo(sourceDir);
+        if (!dir.Exists) return;
+
+        Directory.CreateDirectory(destDir);
+
+        foreach (FileInfo file in dir.GetFiles())
+        {
+            string targetFile = Path.Combine(destDir, file.Name);
+            file.CopyTo(targetFile, true);
+        }
+
+        if (copySubDirs)
+        {
+            foreach (DirectoryInfo subDir in dir.GetDirectories())
+            {
+                string newDestDir = Path.Combine(destDir, subDir.Name);
+                DirectoryCopy(subDir.FullName, newDestDir, true);
+            }
+        }
+    }
+}

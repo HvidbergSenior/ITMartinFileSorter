@@ -1,15 +1,14 @@
 ﻿@page "/"
+@using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Application.UseCases
 @using ITMartinFileSorter.Domain.Entities
 @using ITMartinFileSorter.Domain.Enums
+@inject DuplicateService DuplicateService
 @inject IFileScanner FileScanner
+@inject NavigationManager Navigation
+@inject ITMartinFileSorter.Domain.Interfaces.IHashService HashService
 
 <div class="container mt-4">
-
-    <!-- BIG MAIN CARD -->
-    <div class="all-files-card mb-4">
-        <strong>All Files:</strong> @AllFiles.Count files, @FormatSize(AllFiles.Sum(f => f.SizeBytes))
-    </div>
 
     <!-- FOLDER INPUT -->
     <div class="folder-input d-flex mb-3">
@@ -19,12 +18,24 @@
 
     @if (AllFiles.Count > 0)
     {
+        <!-- BIG MAIN CARD -->
+        <div class="all-files-card mb-3 p-3 text-center" style="background-color:#e9ecef; border-radius:5px;">
+            <strong>All Files:</strong> @AllFiles.Count files, @FormatSize(AllFiles.Sum(f => f.SizeBytes))
+        </div>
+
+        <!-- DUPLICATE BOX -->
+        <div class="mb-3">
+            <a class="btn btn-warning" href="/duplicates">
+                Duplicates automatically removed: <strong>@DuplicateService.DuplicatesRemoved</strong> — Click to view
+            </a>
+        </div>
+
         <!-- MAIN CATEGORY BOXES -->
         <div class="d-flex gap-3 mb-3 flex-wrap">
             @foreach (var main in MainCategories.Keys)
             {
                 <div class="all-files-card flex-fill text-center" 
-                     style="padding:15px; font-size:1em; cursor:pointer; background-color:@GetMainColor(main);"
+                     style="padding:15px; font-size:1em; cursor:pointer; background-color:@GetMainColor(main); border-radius:5px;"
                      @onclick="() => SelectMain(main)">
                     <strong>@main</strong><br />
                     @MainCategories[main].Count files<br />
@@ -41,7 +52,7 @@
                 @foreach (var sub in subs)
                 {
                     <div class="all-files-card flex-fill text-center"
-                         style="padding:12px; font-size:0.9em; cursor:pointer; background-color:@GetMainColor(ExpandedMain.Value);"
+                         style="padding:12px; font-size:0.9em; cursor:pointer; background-color:@GetMainColor(ExpandedMain.Value); border-radius:5px;"
                          @onclick="() => SelectSub(sub.Key)">
                         <strong>@sub.Key</strong><br />
                         @sub.Count() files<br />
@@ -54,40 +65,87 @@
 </div>
 
 @code {
-    string FolderPath = "";
-    List<MediaFile> AllFiles = new();
+    string FolderPath
+    {
+        get => DuplicateService.FolderPath;
+        set => DuplicateService.FolderPath = value;
+    }
+
+    List<MediaFile> AllFiles => DuplicateService.AllFiles;
+    List<List<MediaFile>> DuplicateGroups => DuplicateService.DuplicateGroups;
+    string WorkingFolder => DuplicateService.WorkingFolder;
+
     Dictionary<MediaMainCategory, List<MediaFile>> MainCategories = new();
     MediaMainCategory? ExpandedMain;
     MediaSubCategory? ExpandedSub;
 
-    // Add this line to instantiate your duplicate finder
-    DuplicateFinder Finder = new DuplicateFinder();
-
-    // --- SCAN FOLDER ---
     void ScanFolder()
     {
         if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
             return;
 
-        AllFiles = FileScanner.ScanFolder(FolderPath).ToList();
+        // Scan files
+        var scanned = FileScanner.ScanFolder(FolderPath).ToList();
 
-        // --- Handle duplicates ---
-        DuplicateHelper.ResetCache();
-        foreach (var file in AllFiles)
-            DuplicateHelper.IsDuplicate(file);
+        // Compute hashes
+        foreach (var file in scanned)
+        {
+            try { file.SetHash(HashService.ComputeHash(file.FullPath)); }
+            catch { file.SetHash(null); }
+        }
 
-        var duplicates = Finder.FindDuplicates(AllFiles);
+        // Find duplicates based on hash
+        var finder = new DuplicateFinder();
+        var duplicates = finder.FindDuplicates(scanned);
+
+        int removed = 0;
+        var filesForWorkingCopy = new List<MediaFile>();
+
         foreach (var group in duplicates.Values)
-            foreach (var file in group)
-                file.MainCategory = MediaMainCategory.Duplicate;
+        {
+            if (group.Count <= 1)
+            {
+                filesForWorkingCopy.AddRange(group);
+                continue;
+            }
 
-        // --- Group by main category ---
-        MainCategories = AllFiles
+            var keep = group.First();
+            filesForWorkingCopy.Add(keep); // keep only one in working copy
+            removed += group.Count - 1;
+        }
+
+        DuplicateService.DuplicatesRemoved = removed;
+        DuplicateService.AllFiles = filesForWorkingCopy;
+        DuplicateService.DuplicateGroups = duplicates.Values.ToList();
+
+        // Group by main category
+        MainCategories = filesForWorkingCopy
             .GroupBy(f => f.MainCategory)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         ExpandedMain = null;
         ExpandedSub = null;
+
+        // Prepare working copy (copies files without touching original source)
+        PrepareWorkingCopy();
+    }
+
+    void PrepareWorkingCopy()
+    {
+        if (!string.IsNullOrEmpty(WorkingFolder) && Directory.Exists(WorkingFolder))
+            Directory.Delete(WorkingFolder, true);
+
+        DuplicateService.WorkingFolder = Path.Combine(Path.GetTempPath(), $"MediaSorter_{Guid.NewGuid()}");
+        Directory.CreateDirectory(DuplicateService.WorkingFolder);
+
+        foreach (var file in AllFiles)
+        {
+            string relative = Path.GetRelativePath(FolderPath, file.FullPath);
+            string dest = Path.Combine(DuplicateService.WorkingFolder, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            File.Copy(file.FullPath, dest, true);
+            file.WorkingPath = dest;
+        }
     }
 
     void SelectMain(MediaMainCategory main)
@@ -106,14 +164,13 @@
         return $"{bytes} B";
     }
 
-    // --- COLORS FOR MAIN CATEGORIES ---
     string GetMainColor(MediaMainCategory main) => main switch
     {
-        MediaMainCategory.Audio => "#6f42c1",       // purple
-        MediaMainCategory.Video => "#dc3545",       // red
-        MediaMainCategory.Document => "#0d6efd",    // blue
-        MediaMainCategory.Image => "#28a745",       // green
-        MediaMainCategory.Duplicate => "#ffc107",   // yellow
-        _ => "#6c757d"                              // fallback gray
+        MediaMainCategory.Audio => "#6f42c1",
+        MediaMainCategory.Video => "#dc3545",
+        MediaMainCategory.Document => "#0d6efd",
+        MediaMainCategory.Image => "#28a745",
+        MediaMainCategory.Duplicate => "#ffc107",
+        _ => "#6c757d"
     };
 }

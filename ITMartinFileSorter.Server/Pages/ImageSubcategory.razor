@@ -1,0 +1,43 @@
+﻿@page "/images/{SubCategory}"
+
+@using ITMartinFileSorter.Domain.Enums
+@using ITMartinFileSorter.Domain.Entities
+@using ITMartinFileSorter.Application.Services
+
+@inject DuplicateService DuplicateService
+
+<h3>@SubCategory</h3>
+
+<div class="d-flex flex-wrap gap-3">
+
+    @foreach (var file in Files)
+    {
+        <div class="file-card p-2 text-center"
+             style="width:150px; border:1px solid #ccc; border-radius:6px">
+
+            <img src="@file.WorkingPath"
+                 style="width:100%; height:100px; object-fit:cover;" />
+
+            <div style="font-size:0.8em">
+                @file.FileName
+            </div>
+
+        </div>
+    }
+
+</div>
+
+@code {
+
+    [Parameter]
+    public string SubCategory { get; set; }
+
+    List<MediaFile> Files =>
+        DuplicateService.AllFiles
+            .Where(f =>
+                f.MainCategory == MediaMainCategory.Image &&
+                f.SubCategory.ToString() == SubCategory)
+            .OrderByDescending(f => f.CreatedAt)
+            .ToList();
+
+}

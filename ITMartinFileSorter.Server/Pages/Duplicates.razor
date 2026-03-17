@@ -1,0 +1,73 @@
+﻿@page "/duplicates"
+@using ITMartinFileSorter.Application.Services
+@inject DuplicateService DuplicateService
+
+<div class="container mt-4">
+    <a class="btn btn-secondary mb-3" href="/">← Back to Home</a>
+
+    @if (DuplicateGroups == null || DuplicateGroups.Count == 0)
+    {
+        <p>No duplicates to show. Go back and scan a folder first.</p>
+    }
+    else
+    {
+        <h4>Duplicate Files</h4>
+
+        @foreach (var group in DuplicateGroups)
+        {
+            <div class="duplicate-group mb-3 border p-2">
+                <div class="d-flex gap-2 flex-wrap align-items-start">
+                    @foreach (var file in group)
+                    {
+                        <div class="file-card text-center p-2" style="width:150px; border:1px solid #ccc;">
+                            <img src="@GetThumbnail(file.WorkingPath)" 
+                                 style="width:100%; height:100px; object-fit:cover;" />
+                            <div style="font-size:0.8em;">@Path.GetFileName(file.FullPath)</div>
+                            <button class="btn btn-sm btn-danger mt-1" @onclick="() => DeleteFile(file)">Delete</button>
+                        </div>
+                    }
+                </div>
+                @if (group.Count > 1)
+                {
+                    <button class="btn btn-warning btn-sm mt-2" @onclick="() => DeleteAllButOne(group)">
+                        Delete All But First
+                    </button>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    List<MediaFile> AllFiles => DuplicateService.AllFiles;
+    List<List<MediaFile>> DuplicateGroups => DuplicateService.DuplicateGroups;
+
+    void DeleteFile(MediaFile file)
+    {
+        if (!string.IsNullOrEmpty(file.WorkingPath) && File.Exists(file.WorkingPath))
+            File.Delete(file.WorkingPath);
+
+        foreach (var group in DuplicateGroups)
+            group.Remove(file);
+
+        AllFiles.Remove(file);
+    }
+
+    void DeleteAllButOne(List<MediaFile> group)
+    {
+        for (int i = 1; i < group.Count; i++)
+            DeleteFile(group[i]);
+    }
+
+    string GetThumbnail(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return "_content/placeholder.png";
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif" or ".heic" or ".heif" or ".avif")
+            return path;
+        else
+            return "_content/file-icon.png";
+    }
+}
