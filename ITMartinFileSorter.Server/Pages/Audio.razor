@@ -1,0 +1,41 @@
+﻿@page "/audio"
+
+@using ITMartinFileSorter.Domain.Enums
+@using ITMartinFileSorter.Domain.Entities
+@using ITMartinFileSorter.Application.Services
+
+@inject DuplicateService DuplicateService
+@inject NavigationManager Navigation
+
+<h3>Audio</h3>
+
+<div class="d-flex flex-wrap gap-3">
+
+    @foreach (var group in AudioFiles.GroupBy(f => f.SubCategory))
+    {
+        <div class="all-files-card p-3 text-center"
+             style="width:200px; cursor:pointer"
+             @onclick="() => OpenSub(group.Key)">
+
+            <strong>@group.Key</strong>
+            <div>@group.Count() files</div>
+
+        </div>
+    }
+
+</div>
+
+@code {
+
+    List<MediaFile> AudioFiles =>
+        DuplicateService.AllFiles
+            .Where(f => f.MainCategory == MediaMainCategory.Audio)
+            .ToList();
+
+    void OpenSub(MediaSubCategory sub)
+    {
+        // Navigate to audio subcategory page
+        Navigation.NavigateTo($"/audio/{sub}");
+    }
+
+}
