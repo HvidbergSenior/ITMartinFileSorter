@@ -20,8 +20,8 @@
     @if (!DuplicateService.DuplicateGroups.Any() || DuplicateService.DuplicateGroups.All(g => g.Count <= 1))
     {
         <div class="alert alert-success">
-            No duplicates remaining.
-            <a class="btn btn-sm btn-primary ms-2" @onclick="GoBack">Continue</a>
+            No duplicates remaining
+            <button class="btn btn-sm btn-primary ms-2" @onclick="GoNext">Continue</button>
         </div>
     }
     else
@@ -29,43 +29,26 @@
         @foreach (var group in DuplicateService.DuplicateGroups.Where(g => g.Count > 1))
         {
             var best = group.OrderByDescending(f => f.SizeBytes).First();
-
             <div class="duplicate-group mb-3 border p-2">
                 <div class="d-flex gap-2 flex-wrap align-items-start">
                     @foreach (var file in group)
                     {
                         <div class="file-card text-center p-2"
                              style="width:160px; border:2px solid @(file == best ? "green" : "#ccc");">
-
-                            <img src="@GetThumbnail(file.WorkingPath)"
-                                 style="width:100%; height:100px; object-fit:cover;" />
-
+                            <img src="@GetThumbnail(file.WorkingPath)" style="width:100%; height:100px; object-fit:cover;" />
                             <div style="font-size:0.8em;">
-                                @Path.GetFileName(file.FullPath)<br />
-                                @FormatSize(file.SizeBytes)
+                                @Path.GetFileName(file.FullPath)<br />@FormatSize(file.SizeBytes)
                             </div>
-
                             @if (file == best)
                             {
                                 <div class="text-success" style="font-size:0.75em;">BEST</div>
                             }
-
-                            <button class="btn btn-sm btn-success mt-1"
-                                    @onclick="() => Keep(file, group)">
-                                Keep
-                            </button>
-
-                            <button class="btn btn-sm btn-danger mt-1"
-                                    @onclick="() => DeleteFile(file)">
-                                Delete
-                            </button>
+                            <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file, group)">Keep</button>
+                            <button class="btn btn-sm btn-danger mt-1" @onclick="() => DeleteFile(file)">Delete</button>
                         </div>
                     }
                 </div>
-
-                <button class="btn btn-warning btn-sm mt-2" @onclick="() => Keep(best, group)">
-                    Keep Best (auto)
-                </button>
+                <button class="btn btn-warning btn-sm mt-2" @onclick="() => Keep(best, group)">Keep Best (auto)</button>
             </div>
         }
     }
@@ -79,7 +62,6 @@
             var best = group.OrderByDescending(f => f.SizeBytes).First();
             Keep(best, group);
         }
-
         DuplicateService.DuplicatesHandled = true;
         StateHasChanged();
     }
@@ -111,24 +93,26 @@
         StateHasChanged();
     }
 
-    void GoBack()
+    void GoNext()
     {
-        Navigation.NavigateTo("/");
+        Navigation.NavigateTo(
+            DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Audio) ? "/audio" :
+            DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Document) ? "/documents" :
+            DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Image) ? "/images" :
+            DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Video) ? "/videos" : "/"
+        );
     }
 
     string GetThumbnail(string? path)
     {
-        if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
-            return "_content/placeholder.png";
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return "_content/placeholder.png";
 
         var ext = Path.GetExtension(path).ToLowerInvariant();
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif" or ".heic" or ".heif" or ".avif")
+            return $"/api/media?path={Uri.EscapeDataString(path.Replace("\\","/"))}";
 
-        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" 
-            or ".tiff" or ".tif" or ".heic" or ".heif" or ".avif")
-        {
-            var urlPath = Uri.EscapeDataString(path.Replace("\\","/"));
-            return $"/api/media?path={urlPath}";
-        }
+        if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv" or ".webm" or ".flv")
+            return "_content/video-icon.png";
 
         return "_content/file-icon.png";
     }

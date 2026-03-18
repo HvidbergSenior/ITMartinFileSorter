@@ -12,6 +12,8 @@ builder.Services.AddScoped<IFileScanner, FileScanner>(); // your scanner
 builder.Services.AddScoped<IHashService, Sha256HashService>();  // your hash service
 builder.Services.AddScoped<MediaCategorizer>();
 builder.Services.AddSingleton<DuplicateService>();
+builder.Services.AddSingleton<StepService>();
+
 builder.Services.AddControllers();
 var app = builder.Build();
 

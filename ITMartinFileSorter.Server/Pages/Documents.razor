@@ -1,33 +1,48 @@
 ﻿@page "/documents"
-
-@using ITMartinFileSorter.Domain.Enums
-@using ITMartinFileSorter.Domain.Entities
 @using ITMartinFileSorter.Application.Services
-
 @inject DuplicateService DuplicateService
+@inject NavigationManager Navigation
 
-<h3>Documents</h3>
+<h3>Document Files</h3>
 
-<div class="d-flex flex-wrap gap-3">
-
-    @foreach (var group in DocumentFiles.GroupBy(f => f.SubCategory))
-    {
-        <div class="all-files-card p-3 text-center"
-             style="width:200px">
-
-            <strong>@group.Key</strong>
-            <div>@group.Count() files</div>
-
-        </div>
-    }
-
-</div>
+@if (!DocumentFiles.Any())
+{
+    <div class="alert alert-info">No document files found.</div>
+    <button class="btn btn-primary" @onclick="GoNext">Next Step</button>
+}
+else
+{
+    <div class="d-flex flex-wrap gap-3">
+        @foreach (var group in DocumentFiles.GroupBy(f => f.SubCategory))
+        {
+            <div class="all-files-card p-3 text-center" style="width:200px">
+                <strong>@group.Key</strong>
+                <div>@group.Count() files</div>
+            </div>
+        }
+    </div>
+    <button class="btn btn-success mt-3" @onclick="Accept">Accept & Continue</button>
+}
 
 @code {
+    List<MediaFile> DocumentFiles => DuplicateService.AllFiles
+        .Where(f => f.MainCategory == MediaMainCategory.Document)
+        .ToList();
 
-    List<MediaFile> DocumentFiles =>
-        DuplicateService.AllFiles
-            .Where(f => f.MainCategory == MediaMainCategory.Document)
-            .ToList();
+    void Accept()
+    {
+        foreach (var file in DocumentFiles)
+            file.Keep = true;
 
+        GoNext();
+    }
+
+    void GoNext()
+    {
+        Navigation.NavigateTo(DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Image)
+            ? "/images"
+            : DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Video)
+                ? "/videos"
+                : "/");
+    }
 }
