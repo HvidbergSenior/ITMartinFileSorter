@@ -1,0 +1,59 @@
+﻿@page "/dashboard"
+@using ITMartinFileSorter.Application.Services
+@inject DuplicateService DuplicateService
+@inject VideoThumbnailService VideoThumbnailService
+@inject NavigationManager Navigation
+
+<div class="container mt-4">
+    <h4>Dashboard</h4>
+    <p>View your files summary and go handle duplicates.</p>
+
+    <!-- All Files summary -->
+    <div class="all-files-summary p-2 mb-3" style="background-color:#e0f7fa; border-radius:4px;">
+        <strong>All Files:</strong>
+        @FileSizeFormatter.FormatCountSize(DuplicateService.AllFiles, MediaType.Image) |
+        @FileSizeFormatter.FormatCountSize(DuplicateService.AllFiles, MediaType.Video) |
+        @FileSizeFormatter.FormatCountSize(DuplicateService.AllFiles, MediaType.Audio) |
+        @FileSizeFormatter.FormatCountSize(DuplicateService.AllFiles, MediaType.Document)
+    </div>
+
+    <!-- Video Thumbnails Preview -->
+    @if (DuplicateService.AllFiles.Any(f => f.Type == MediaType.Video))
+    {
+        <h5>Video Preview</h5>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            @foreach (var video in DuplicateService.AllFiles.Where(f => f.Type == MediaType.Video))
+            {
+                <div class="video-card text-center p-2" style="width:160px; border:1px solid #ccc; border-radius:4px;">
+                    <img src="@GetThumbnail(video)" style="width:100%; height:100px; object-fit:cover; border-radius:2px;" />
+                    <div style="font-size:0.8em; margin-top:4px;">
+                        @Path.GetFileName(video.FullPath)<br />
+                        @FileSizeFormatter.FormatCountSize(video.SizeBytes)
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Go to Duplicates Button -->
+    <button class="btn btn-warning" @onclick="GoToDuplicates">
+        Go to Duplicates
+    </button>
+</div>
+
+@code {
+    string GetThumbnail(MediaFile file)
+    {
+        if (file.Type == MediaType.Video && !string.IsNullOrEmpty(file.ThumbnailPath))
+        {
+            return $"/media_temp/{file.ThumbnailPath}?t={DateTime.Now.Ticks}";
+        }
+        return "_content/video-icon.png";
+    }
+
+    void GoToDuplicates()
+    {
+        DuplicateService.NotifyStateChanged();
+        Navigation.NavigateTo("/duplicates");
+    }
+}

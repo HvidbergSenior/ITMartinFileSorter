@@ -33,10 +33,15 @@ public sealed class FileScanner : IFileScanner
         ReturnSpecialDirectories = false
     };
 
-    public IEnumerable<MediaFile> ScanFolder(string rootPath)
+    public IEnumerable<MediaFile> ScanFolder(string rootPath, Action<int, string>? onProgress = null)
     {
+        int index = 0;
+
         foreach (var file in Directory.EnumerateFiles(rootPath, "*.*", _options))
         {
+            index++;
+            onProgress?.Invoke(index, file);
+
             var extension = Path.GetExtension(file);
 
             var isImage = ImageExtensions.Contains(extension);
@@ -68,63 +73,44 @@ public sealed class FileScanner : IFileScanner
 
             bool isDownload = folder.Contains("download");
             bool isWhatsapp = folder.Contains("whatsapp");
-            bool isTelegram = folder.Contains("telegram");
 
-            // ---------- IMAGE ----------
             if (type == MediaType.Image)
             {
                 if (name.Contains("screenshot"))
                     mediaFile.SubCategory = MediaSubCategory.Screenshot;
-
                 else if (extension is ".heic" or ".heif")
                     mediaFile.SubCategory = MediaSubCategory.PhonePhoto;
-
                 else if (name.StartsWith("img_") || name.StartsWith("dsc_"))
                     mediaFile.SubCategory = MediaSubCategory.Camera;
-
                 else if (isWhatsapp)
                     mediaFile.SubCategory = MediaSubCategory.WhatsApp;
-
                 else if (isDownload)
                     mediaFile.SubCategory = MediaSubCategory.Download;
-
                 else
                     mediaFile.SubCategory = MediaSubCategory.OtherImage;
             }
-
-            // ---------- VIDEO ----------
             else if (type == MediaType.Video)
             {
                 if (name.Contains("screen"))
                     mediaFile.SubCategory = MediaSubCategory.ScreenRecording;
-
                 else if (name.StartsWith("img_"))
                     mediaFile.SubCategory = MediaSubCategory.PhoneVideo;
-
                 else if (isWhatsapp)
                     mediaFile.SubCategory = MediaSubCategory.WhatsApp;
-
                 else if (isDownload)
                     mediaFile.SubCategory = MediaSubCategory.Download;
-
                 else
                     mediaFile.SubCategory = MediaSubCategory.OtherVideo;
             }
-
-            // ---------- AUDIO ----------
             else if (type == MediaType.Audio)
             {
                 if (extension is ".mp3" or ".flac")
                     mediaFile.SubCategory = MediaSubCategory.Music;
-
                 else if (extension is ".wav" or ".aac")
                     mediaFile.SubCategory = MediaSubCategory.VoiceMemo;
-
                 else
                     mediaFile.SubCategory = MediaSubCategory.UnknownAudio;
             }
-
-            // ---------- DOCUMENT ----------
             else if (type == MediaType.Document)
             {
                 mediaFile.SubCategory = extension switch

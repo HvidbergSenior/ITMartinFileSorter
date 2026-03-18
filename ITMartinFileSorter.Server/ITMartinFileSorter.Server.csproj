@@ -17,6 +17,12 @@
       <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     </ItemGroup>
 
+  <ItemGroup>
+    <None Include="ffmpeg\bin\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
     <ItemGroup>
       <Content Remove="wwwroot\media_temp\IMG_2039.PNG" />
       <Content Remove="wwwroot\media_temp\IMG_2038.PNG" />

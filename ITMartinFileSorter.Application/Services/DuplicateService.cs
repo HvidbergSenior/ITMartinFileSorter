@@ -14,4 +14,9 @@ public class DuplicateService
 
     // NEW: track if duplicates were handled
     public bool DuplicatesHandled { get; set; } = false;
+    
+    // Event to trigger UI updates
+    public event Action? OnChange;
+
+    public void NotifyStateChanged() => OnChange?.Invoke();
 }

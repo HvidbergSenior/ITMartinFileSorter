@@ -13,6 +13,7 @@ builder.Services.AddScoped<IHashService, Sha256HashService>();  // your hash ser
 builder.Services.AddScoped<MediaCategorizer>();
 builder.Services.AddSingleton<DuplicateService>();
 builder.Services.AddSingleton<StepService>();
+builder.Services.AddSingleton<VideoThumbnailService>();
 
 builder.Services.AddControllers();
 var app = builder.Build();

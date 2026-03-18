@@ -5,24 +5,17 @@ namespace ITMartinFileSorter.Domain.Entities;
 public class MediaFile
 {
     public string FullPath { get; }
-
     public string OriginalPath { get; }
-
     public string FileName { get; }
-
     public string Extension { get; }
-
     public long SizeBytes { get; set; }
-
     public DateTime CreatedAt { get; set; }
-
     public int Year { get; set; }
-
     public int Month { get; set; }
-
     public MediaType Type { get; }
 
     public string? WorkingPath { get; set; }  // points to the temporary copy
+    public string? ThumbnailPath { get; set; } // NEW: stores generated video thumbnail filename
 
     // Categorization
     public MediaMainCategory MainCategory { get; set; }
@@ -44,6 +37,7 @@ public class MediaFile
     // Tracks whether user wants to keep the file in the workflow
     public bool Keep { get; set; } = false;
     
+
     public MediaFile(string fullPath, DateTime createdAt, MediaType type, long sizeBytes)
     {
         FullPath = fullPath;
@@ -81,10 +75,7 @@ public class MediaFile
         TertiaryCategory = MediaTertiaryCategory.Unknown;
     }
 
-    public void SetHash(string hash)
-    {
-        Hash = hash;
-    }
+    public void SetHash(string hash) => Hash = hash;
 
     public void SetVideoMetadata(long? durationMs, int? width, int? height)
     {

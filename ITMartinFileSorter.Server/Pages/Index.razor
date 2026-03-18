@@ -1,12 +1,11 @@
 ﻿@page "/"
 @using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Application.UseCases
-@using ITMartinFileSorter.Domain.Entities
-@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject IFileScanner FileScanner
-@inject ITMartinFileSorter.Domain.Interfaces.IHashService HashService
+@inject IHashService HashService
 @inject NavigationManager Navigation
+@inject VideoThumbnailService VideoThumbnailService
 
 <div class="container mt-4">
 
@@ -19,7 +18,14 @@
 
     @if (IsScanning)
     {
-        <div class="alert alert-info">Scanning files… please wait</div>
+        <div class="alert alert-info">
+            Scanned: @CurrentFileIndex files
+
+            @if (!string.IsNullOrEmpty(CurrentFileName))
+            {
+                <div>Current: @CurrentFileName</div>
+            }
+        </div>
     }
 
     @if (DuplicateService.AllFiles.Any())
@@ -71,6 +77,9 @@
 
     bool IsScanning = false;
 
+    int CurrentFileIndex = 0;
+    string CurrentFileName = "";
+
     readonly MediaMainCategory[] CategoryOrder = new[]
     {
         MediaMainCategory.Image,
@@ -83,25 +92,53 @@
             return;
 
         IsScanning = true;
+        CurrentFileIndex = 0;
+        CurrentFileName = "";
+        DuplicateService.AllFiles.Clear();
+
+        await InvokeAsync(StateHasChanged);
 
         try
         {
-            var scanned = await Task.Run(() => FileScanner.ScanFolder(FolderPath).ToList());
+            var scanned = new List<MediaFile>();
 
-            // Compute hashes only for files with same size
+            await Task.Run(async () =>
+            {
+                foreach (var file in FileScanner.ScanFolder(FolderPath, (i, path) =>
+                         {
+                             CurrentFileIndex = i;
+                             CurrentFileName = Path.GetFileName(path);
+                         }))
+                {
+                    file.WorkingPath = file.FullPath;
+                    file.Keep = false;
+
+                    // 🚀 DO NOT generate thumbnails here (huge performance win)
+
+                    scanned.Add(file);
+
+                    // Update UI every 10 files (smooth + fast)
+                    if (CurrentFileIndex % 10 == 0)
+                    {
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
+            });
+
+            // --- HASHING ---
             var groupedBySize = scanned.GroupBy(f => f.SizeBytes);
             foreach (var group in groupedBySize)
             {
                 if (group.Count() == 1) continue;
+
                 foreach (var file in group)
                 {
                     try { file.SetHash(HashService.ComputeHash(file.FullPath)); }
                     catch { file.SetHash(null); }
-                    file.WorkingPath = file.FullPath;
-                    file.Keep = false;
                 }
             }
 
+            // --- DUPLICATES ---
             var finder = new DuplicateFinder();
             var duplicates = finder.FindDuplicates(scanned);
 
@@ -112,6 +149,7 @@
         finally
         {
             IsScanning = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
