@@ -73,13 +73,23 @@
 
         if (file.Type == MediaType.Video)
         {
-            if (!string.IsNullOrEmpty(file.ThumbnailPath))
-                return $"/media_temp/{file.ThumbnailPath}?t={DateTime.Now.Ticks}"; // cache-busting
+            try
+            {
+                if (string.IsNullOrEmpty(file.ThumbnailPath))
+                {
+                    file.ThumbnailPath = VideoThumbnailService.GenerateThumbnail(file.FullPath);
+                }
 
-            return "_content/video-icon.png";
+                if (!string.IsNullOrEmpty(file.ThumbnailPath))
+                {
+                    return $"/media_temp/{file.ThumbnailPath}?t={DateTime.Now.Ticks}";
+                }
+            }
+            catch { }
+
         }
-
-        return "_content/file-icon.png";
+    return "_content/video-icon.png";
+    
     }
 
     void PickBestForRemaining()
