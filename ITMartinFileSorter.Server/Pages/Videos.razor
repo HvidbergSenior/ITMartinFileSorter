@@ -1,6 +1,9 @@
 ﻿@page "/videos"
 @using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Domain.Entities
+@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
+@inject VideoThumbnailService VideoThumbnailService
 @inject NavigationManager Navigation
 
 <h3>Videos</h3>
@@ -28,7 +31,7 @@ else
             @foreach (var file in SubGroups[ExpandedSubKey])
             {
                 <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
-                    <img src="@GetThumbnail(file.WorkingPath)" style="width:100%; height:80px; object-fit:cover;" />
+                    <img src="@GetThumbnail(file)" style="width:100%; height:80px; object-fit:cover;" />
                     <div style="font-size:0.75em;">@file.FileName</div>
                 </div>
             }
@@ -64,15 +67,50 @@ else
 
     void Finish()
     {
-        // Optional: trigger export
+        // Optional: trigger export or continue workflow
         Navigation.NavigateTo("/");
     }
 
-    string GetThumbnail(string? path)
+    string GetThumbnail(MediaFile file)
     {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return "_content/placeholder.png";
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-        if (ext is ".mp4" or ".mov" or ".avi" or ".mkv" or ".webm") return "_content/video-icon.png";
+        // IMAGE
+        if (file.Type == MediaType.Image)
+        {
+            if (string.IsNullOrEmpty(file.WorkingPath) || !File.Exists(file.WorkingPath))
+                return "_content/placeholder.png";
+
+            return $"/api/media?path={Uri.EscapeDataString(file.WorkingPath.Replace("\\","/"))}";
+        }
+
+        // VIDEO
+        if (file.Type == MediaType.Video)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(file.ThumbnailPath))
+                {
+                    // Generate thumbnail asynchronously
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            file.ThumbnailPath = VideoThumbnailService.GenerateThumbnail(file.FullPath);
+                            InvokeAsync(StateHasChanged); // Refresh UI
+                        }
+                        catch { }
+                    });
+
+                    return "_content/video-icon.png"; // temporary placeholder
+                }
+
+                return $"/media_temp/{file.ThumbnailPath}?t={DateTime.Now.Ticks}";
+            }
+            catch
+            {
+                return "_content/video-icon.png";
+            }
+        }
+
         return "_content/file-icon.png";
     }
 }
