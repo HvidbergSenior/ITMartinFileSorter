@@ -10,7 +10,6 @@
 
 <div class="container mt-4">
 
-    <!-- FOLDER INPUT -->
     <div class="folder-input d-flex mb-3">
         <input type="text" @bind="FolderPath" placeholder="Enter folder path..." class="form-control me-2" />
         <button class="btn btn-primary" @onclick="ScanFolder" disabled="@IsScanning">
@@ -34,20 +33,31 @@
         }
         else
         {
-            <h4>Step 2–5: File Categories</h4>
+            <h4>Step 3–5: File Categories</h4>
 
-            @foreach (var cat in CategoryOrder)
-            {
-                @if (MainCategories.TryGetValue(cat, out var files) && files.Count > 0)
+            <!-- Summary Box -->
+            <div class="summary-box mb-4 p-3" style="border:1px solid #ccc; border-radius:5px;">
+                @foreach (var cat in CategoryOrder)
                 {
-                    <div class="category-box mb-3 p-3 text-center" 
-                         style="background-color:@GetMainColor(cat); border-radius:5px; cursor:pointer;"
-                         @onclick="() => GoToCategory(cat)">
-                        <strong>@cat</strong><br />
-                        @files.Count files
+                    <div class="d-flex justify-content-between mb-1">
+                        <span style="font-weight:bold">@cat</span>
+                        <span>@GetFileCount(cat) files, @FormatSize(GetFileSize(cat))</span>
                     </div>
                 }
-            }
+            </div>
+
+            <!-- Category Boxes -->
+            <div class="d-flex flex-wrap gap-3">
+                @foreach (var cat in CategoryOrder)
+                {
+                    <div class="category-box mb-3 p-3 text-center"
+                         style="background-color:@GetMainColor(cat); border-radius:5px; cursor:pointer; width:150px"
+                         @onclick="() => GoToCategory(cat)">
+                        <strong>@cat</strong><br />
+                        @GetFileCount(cat) files
+                    </div>
+                }
+            </div>
         }
     }
 </div>
@@ -60,26 +70,12 @@
     }
 
     bool IsScanning = false;
-    Dictionary<MediaMainCategory, List<MediaFile>> MainCategories = new();
+
     readonly MediaMainCategory[] CategoryOrder = new[]
     {
-        MediaMainCategory.Document,
-        MediaMainCategory.Audio,
         MediaMainCategory.Image,
         MediaMainCategory.Video
     };
-
-    protected override void OnInitialized()
-    {
-        // If files exist (e.g., returned from duplicates), rebuild main categories
-        if (DuplicateService.AllFiles.Any())
-        {
-            MainCategories = DuplicateService.AllFiles
-                .Where(f => f.Keep)
-                .GroupBy(f => f.MainCategory)
-                .ToDictionary(g => g.Key, g => g.ToList());
-        }
-    }
 
     async Task ScanFolder()
     {
@@ -94,35 +90,24 @@
 
             // Compute hashes only for files with same size
             var groupedBySize = scanned.GroupBy(f => f.SizeBytes);
-            await Task.Run(() =>
+            foreach (var group in groupedBySize)
             {
-                foreach (var group in groupedBySize)
+                if (group.Count() == 1) continue;
+                foreach (var file in group)
                 {
-                    if (group.Count() == 1) continue;
-
-                    foreach (var file in group)
-                    {
-                        try { file.SetHash(HashService.ComputeHash(file.FullPath)); }
-                        catch { file.SetHash(null); }
-
-                        // Set WorkingPath to original
-                        file.WorkingPath = file.FullPath;
-                    }
+                    try { file.SetHash(HashService.ComputeHash(file.FullPath)); }
+                    catch { file.SetHash(null); }
+                    file.WorkingPath = file.FullPath;
+                    file.Keep = false;
                 }
-            });
+            }
 
-            // Find duplicates
             var finder = new DuplicateFinder();
             var duplicates = finder.FindDuplicates(scanned);
 
             DuplicateService.AllFiles = scanned;
             DuplicateService.DuplicateGroups = duplicates.Values.ToList();
             DuplicateService.DuplicatesHandled = false;
-
-            // Prepare main categories
-            MainCategories = DuplicateService.AllFiles
-                .GroupBy(f => f.MainCategory)
-                .ToDictionary(g => g.Key, g => g.ToList());
         }
         finally
         {
@@ -130,21 +115,29 @@
         }
     }
 
-    void GoToDuplicates()
+    int GetFileCount(MediaMainCategory cat) =>
+        DuplicateService.AllFiles.Count(f => f.MainCategory == cat);
+
+    long GetFileSize(MediaMainCategory cat) =>
+        DuplicateService.AllFiles
+            .Where(f => f.MainCategory == cat)
+            .Sum(f => f.SizeBytes);
+
+    string FormatSize(long size)
     {
-        Navigation.NavigateTo("/duplicates");
+        if (size < 1024) return $"{size} B";
+        if (size < 1024 * 1024) return $"{(size / 1024.0):F1} KB";
+        if (size < 1024 * 1024 * 1024) return $"{(size / 1024.0 / 1024.0):F1} MB";
+        return $"{(size / 1024.0 / 1024.0 / 1024.0):F1} GB";
     }
 
-    void GoToCategory(MediaMainCategory cat)
-    {
-        Navigation.NavigateTo($"/category-step/{cat}");
-    }
+    void GoToDuplicates() => Navigation.NavigateTo("/duplicates");
+
+    void GoToCategory(MediaMainCategory cat) => Navigation.NavigateTo($"/category-step/{cat}");
 
     string GetMainColor(MediaMainCategory main) => main switch
     {
-        MediaMainCategory.Audio => "#6f42c1",
         MediaMainCategory.Video => "#dc3545",
-        MediaMainCategory.Document => "#0d6efd",
         MediaMainCategory.Image => "#28a745",
         _ => "#6c757d"
     };

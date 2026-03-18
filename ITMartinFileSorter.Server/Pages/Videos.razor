@@ -3,31 +3,87 @@
 @using ITMartinFileSorter.Domain.Enums
 @using ITMartinFileSorter.Domain.Entities
 @using ITMartinFileSorter.Application.Services
-
 @inject DuplicateService DuplicateService
+@inject NavigationManager Navigation
 
 <h3>Videos</h3>
 
-<div class="d-flex flex-wrap gap-3">
-
+<div class="d-flex flex-wrap gap-3 mb-3">
     @foreach (var group in VideoFiles.GroupBy(f => f.SubCategory))
     {
         <div class="all-files-card p-3 text-center"
-             style="width:200px">
-
-            <strong>@group.Key</strong>
-            <div>@group.Count() files</div>
-
+             style="width:200px; cursor:pointer"
+             @onclick="() => ToggleSubGroup(group.Key)">
+            <strong>@group.Key</strong><br />
+            @group.Count() files
         </div>
     }
-
 </div>
 
-@code {
+@if (ExpandedSubKey.HasValue && SubGroups.ContainsKey(ExpandedSubKey.Value))
+{
+    <div class="d-flex gap-2 flex-wrap mb-3">
+        @foreach (var file in SubGroups[ExpandedSubKey.Value])
+        {
+            <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
+                <img src="@GetThumbnail(file.WorkingPath)" style="width:100%; height:80px; object-fit:cover;" />
+                <div style="font-size:0.75em;">@file.FileName</div>
+                <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file)">Keep</button>
+                <button class="btn btn-sm btn-danger mt-1" @onclick="() => Delete(file)">Delete</button>
+            </div>
+        }
+    </div>
+}
 
+@code {
     List<MediaFile> VideoFiles =>
         DuplicateService.AllFiles
             .Where(f => f.MainCategory == MediaMainCategory.Video)
             .ToList();
 
+    Dictionary<MediaSubCategory, List<MediaFile>> SubGroups = new();
+    MediaSubCategory? ExpandedSubKey = null;
+
+    protected override void OnInitialized()
+    {
+        // Group videos by subcategory
+        SubGroups = VideoFiles
+            .GroupBy(f => f.SubCategory)
+            .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    void ToggleSubGroup(MediaSubCategory key)
+    {
+        if (ExpandedSubKey.HasValue && ExpandedSubKey.Value == key)
+            ExpandedSubKey = null;
+        else
+            ExpandedSubKey = key;
+    }
+
+    void Keep(MediaFile file)
+    {
+        file.Keep = true;
+        if (ExpandedSubKey.HasValue)
+            SubGroups[ExpandedSubKey.Value].Remove(file);
+    }
+
+    void Delete(MediaFile file)
+    {
+        file.Keep = false;
+        if (ExpandedSubKey.HasValue)
+            SubGroups[ExpandedSubKey.Value].Remove(file);
+    }
+
+    string GetThumbnail(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+            return "_content/placeholder.png";
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        if (ext is ".mp4" or ".mov" or ".avi" or ".mkv" or ".webm" or ".flv")
+            return $"/api/media?path={Uri.EscapeDataString(path)}";
+
+        // Fallback for any video file
+        return "_content/file-icon.png";
+    }
 }
