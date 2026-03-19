@@ -1,203 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-    <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <RootNamespace>ITMartinFileSorter.Server</RootNamespace>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\ITMartinFileSorter.Application\ITMartinFileSorter.Application.csproj" />
-        <ProjectReference Include="..\ITMartinFileSorter.Domain\ITMartinFileSorter.Domain.csproj" />
-        <ProjectReference Include="..\ITMartinFileSorter.Infrastructure\ITMartinFileSorter.Infrastructure.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
-    </ItemGroup>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ITMartinFileSorter.Server</RootNamespace>
+  </PropertyGroup>
 
   <ItemGroup>
-    <None Include="ffmpeg\bin\**\*.*">
+    <ProjectReference Include="..\ITMartinFileSorter.Application\ITMartinFileSorter.Application.csproj" />
+    <ProjectReference Include="..\ITMartinFileSorter.Domain\ITMartinFileSorter.Domain.csproj" />
+    <ProjectReference Include="..\ITMartinFileSorter.Infrastructure\ITMartinFileSorter.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+  </ItemGroup>
+
+  <!-- Copy FFmpeg files to output -->
+  <ItemGroup>
+    <None Include="Ffmeg\bin\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
   </ItemGroup>
 
-    <ItemGroup>
-      <Content Remove="wwwroot\media_temp\IMG_2039.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_2038.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_2037.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_2035.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_2034.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_2026.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1996.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1983.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1977.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1963.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1962.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1955.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1951.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1950.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1949.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1937.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1935.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1931.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1918.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1910.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1908.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1882.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1879.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1878.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1869.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1868.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1867.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1850.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1849.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1824.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1823.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1822.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1750.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1724.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1711.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1691.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1689.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1684.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1671.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1641.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1610.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1544.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1514.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1513.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1469.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1461.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1450.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1432.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1392.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1385.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1379.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1353.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_1330.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1327.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1312.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1309.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_1282.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1280.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1279.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1246.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1111.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1110.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1103.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1098.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_1093.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1084.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1040.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1030.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1022.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1015.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1011.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1004.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_1002.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0996.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0994.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0992.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0987.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0950.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0927.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0914.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0913.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0912.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0909.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0907.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0890.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0844.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0832.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0826.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0814.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0769.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0738.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0737.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0714.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0707.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0680.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0655.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0654.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0653.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0650.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0638.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0637.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0636.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0615.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0612.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0611.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0608.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0598.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0597.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0591.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0587.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0566.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0563.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0552.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0522.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0438.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0434.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0433.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0411.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0404.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0403.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0399.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0398.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0381.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0367.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0360.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0359.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0350.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0349.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0347.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0346.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0342.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0341.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0340.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0338.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0336.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0335.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0333.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0332.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0324.JPG" />
-      <Content Remove="wwwroot\media_temp\IMG_0317.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0281.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0268.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0267.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0258.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0257.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0256.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0255.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0254.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0253.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0251.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0250.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0249.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0248.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0244.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0222.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0182.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0178.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0177.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0171.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0170.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0164.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0162.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0161.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0152.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0145.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0144.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0103.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0095.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0094.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0087.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0086.PNG" />
-      <Content Remove="wwwroot\media_temp\IMG_0085.PNG" />
-      <Content Remove="wwwroot\media_temp\HEXY4563.JPEG" />
-      <Content Remove="wwwroot\media_temp\GDTE6798.GIF" />
-    </ItemGroup>
+  <!-- Media temp folder for thumbnails -->
+  <ItemGroup>
+    <Folder Include="wwwroot\media_temp\" />
+  </ItemGroup>
 
 </Project>

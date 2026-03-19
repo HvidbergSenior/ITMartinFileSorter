@@ -61,35 +61,33 @@
 </div>
 
 @code {
+    protected override void OnInitialized() => DuplicateService.OnChange += StateHasChanged;
+    public void Dispose() => DuplicateService.OnChange -= StateHasChanged;
+
     string GetThumbnail(MediaFile file)
     {
         if (file.Type == MediaType.Image)
-        {
-            if (string.IsNullOrEmpty(file.WorkingPath) || !File.Exists(file.WorkingPath))
-                return "_content/placeholder.png";
-
-            return $"/api/media?path={Uri.EscapeDataString(file.WorkingPath.Replace("\\","/"))}";
-        }
+            return string.IsNullOrEmpty(file.WorkingPath) || !File.Exists(file.WorkingPath)
+                ? "_content/placeholder.png"
+                : $"/api/media?path={Uri.EscapeDataString(file.WorkingPath.Replace("\\","/"))}";
 
         if (file.Type == MediaType.Video)
         {
             try
             {
                 if (string.IsNullOrEmpty(file.ThumbnailPath))
-                {
                     file.ThumbnailPath = VideoThumbnailService.GenerateThumbnail(file.FullPath);
-                }
 
-                if (!string.IsNullOrEmpty(file.ThumbnailPath))
-                {
+                var thumbFullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "media_temp", file.ThumbnailPath ?? "");
+                if (!string.IsNullOrEmpty(file.ThumbnailPath) && File.Exists(thumbFullPath))
                     return $"/media_temp/{file.ThumbnailPath}?t={DateTime.Now.Ticks}";
-                }
             }
             catch { }
 
+            return "_content/video-icon.png";
         }
-    return "_content/video-icon.png";
-    
+
+        return "_content/file-icon.png";
     }
 
     void PickBestForRemaining()
@@ -99,8 +97,9 @@
             var best = group.OrderByDescending(f => f.SizeBytes).First();
             Keep(best, group);
         }
+
         DuplicateService.DuplicatesHandled = true;
-        StateHasChanged();
+        DuplicateService.NotifyStateChanged();
     }
 
     void Keep(MediaFile selected, List<MediaFile> group)
@@ -131,9 +130,6 @@
         DuplicateService.AllFiles.Remove(file);
         StateHasChanged();
     }
-
-    protected override void OnInitialized() => DuplicateService.OnChange += StateHasChanged;
-    public void Dispose() => DuplicateService.OnChange -= StateHasChanged;
 
     void GoNext()
     {

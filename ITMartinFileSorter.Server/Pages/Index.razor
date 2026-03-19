@@ -20,7 +20,6 @@
     {
         <div class="alert alert-info">
             Scanned: @CurrentFileIndex files
-
             @if (!string.IsNullOrEmpty(CurrentFileName))
             {
                 <div>Current: @CurrentFileName</div>
@@ -34,7 +33,9 @@
         {
             <div class="alert alert-warning">
                 ⚠ You must handle duplicates before continuing
-                <a class="btn btn-sm btn-secondary ms-2" @onclick="GoToDuplicates">Go to Duplicates</a>
+                <button class="btn btn-sm btn-secondary ms-2" @onclick="GoToDuplicates" disabled="@IsNavigating">
+                    Go to Duplicates
+                </button>
             </div>
         }
         else
@@ -76,6 +77,7 @@
     }
 
     bool IsScanning = false;
+    bool IsNavigating = false; // Flag to prevent button blink
 
     int CurrentFileIndex = 0;
     string CurrentFileName = "";
@@ -112,25 +114,18 @@
                 {
                     file.WorkingPath = file.FullPath;
                     file.Keep = false;
-
-                    // 🚀 DO NOT generate thumbnails here (huge performance win)
-
                     scanned.Add(file);
 
-                    // Update UI every 10 files (smooth + fast)
                     if (CurrentFileIndex % 10 == 0)
-                    {
                         await InvokeAsync(StateHasChanged);
-                    }
                 }
             });
 
-            // --- HASHING ---
+            // Hashing
             var groupedBySize = scanned.GroupBy(f => f.SizeBytes);
             foreach (var group in groupedBySize)
             {
                 if (group.Count() == 1) continue;
-
                 foreach (var file in group)
                 {
                     try { file.SetHash(HashService.ComputeHash(file.FullPath)); }
@@ -138,13 +133,14 @@
                 }
             }
 
-            // --- DUPLICATES ---
+            // Duplicates
             var finder = new DuplicateFinder();
             var duplicates = finder.FindDuplicates(scanned);
 
             DuplicateService.AllFiles = scanned;
             DuplicateService.DuplicateGroups = duplicates.Values.ToList();
             DuplicateService.DuplicatesHandled = false;
+            DuplicateService.NotifyStateChanged();
         }
         finally
         {
@@ -157,9 +153,7 @@
         DuplicateService.AllFiles.Count(f => f.MainCategory == cat);
 
     long GetFileSize(MediaMainCategory cat) =>
-        DuplicateService.AllFiles
-            .Where(f => f.MainCategory == cat)
-            .Sum(f => f.SizeBytes);
+        DuplicateService.AllFiles.Where(f => f.MainCategory == cat).Sum(f => f.SizeBytes);
 
     string FormatSize(long size)
     {
@@ -169,9 +163,18 @@
         return $"{(size / 1024.0 / 1024.0 / 1024.0):F1} GB";
     }
 
-    void GoToDuplicates() => Navigation.NavigateTo("/duplicates");
+    async Task GoToDuplicates()
+    {
+        if (IsNavigating) return; // Prevent double-click
+        IsNavigating = true;
 
-    void GoToCategory(MediaMainCategory cat) => Navigation.NavigateTo($"/category-step/{cat}");
+        // Ensure navigation happens after the current render cycle to prevent blink
+        await Task.Yield();
+        Navigation.NavigateTo("/duplicates");
+    }
+
+    void GoToCategory(MediaMainCategory cat) =>
+        Navigation.NavigateTo($"/category-step/{cat}");
 
     string GetMainColor(MediaMainCategory main) => main switch
     {
