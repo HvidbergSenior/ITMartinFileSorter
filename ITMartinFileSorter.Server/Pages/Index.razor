@@ -161,16 +161,17 @@
         return $"{(size / 1024.0 / 1024.0 / 1024.0):F1} GB";
     }
 
+    
     async Task GoToDuplicates()
     {
         if (IsNavigating) return;
         IsNavigating = true;
 
-        // wait for current render cycle to finish
-        await Task.Yield();
-        Navigation.NavigateTo("/duplicates");
+        await InvokeAsync(() =>
+        {
+            Navigation.NavigateTo("/duplicates");
+        });
     }
-
     void GoToCategory(MediaMainCategory cat) =>
         Navigation.NavigateTo($"/category-step/{cat}");
 
