@@ -1,6 +1,5 @@
 ﻿@page "/category-step/{CategoryString}"
 @using ITMartinFileSorter.Application.Services
-@using ITMartinFileSorter.Application.UseCases
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 @inject VideoThumbnailService VideoThumbnailService
@@ -19,6 +18,10 @@
                      @onclick="() => ToggleSubGroup(key)">
                     <strong>@key</strong><br />
                     @SubGroups[key].Count files
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-success me-1" @onclick="() => KeepAll(key)">Keep All</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteAll(key)">Delete All</button>
+                    </div>
                 </div>
             }
         </div>
@@ -46,12 +49,9 @@
         <button class="btn btn-primary" @onclick="GoNext" disabled="@(CanMoveNext == false)">
             Next Category →
         </button>
-
         @if (CurrentCategory == CategoryOrder.Last())
         {
-            <button class="btn btn-success ms-2" @onclick="ExportStructured">
-                Finish & Export
-            </button>
+            <button class="btn btn-success ms-2" @onclick="ExportStructured">Finish & Export</button>
         }
 
         @if (!CanMoveNext && SubGroups.Any())
@@ -65,7 +65,6 @@
 
 @code {
     [Parameter] public string CategoryString { get; set; } = "image";
-
     private MediaMainCategory CurrentCategory { get; set; }
     Dictionary<string, List<MediaFile>> SubGroups = new();
     string? ExpandedSubKey;
@@ -92,45 +91,8 @@
         };
 
         LoadSubGroups();
-
-        // 🔹 DEBUG: check files and duplicates
-        DebugDuplicateService();
     }
 
-    void DebugDuplicateService()
-    {
-        Console.WriteLine("=== DuplicateService Debug ===");
-        Console.WriteLine($"Total files: {DuplicateService.AllFiles.Count}");
-
-        foreach (var file in DuplicateService.AllFiles)
-        {
-            Console.WriteLine($"File: {file.FileName}");
-            Console.WriteLine($"  Type: {file.Type}");
-            Console.WriteLine($"  Year: {file.Year}, Month: {file.Month}");
-            Console.WriteLine($"  SizeBytes: {file.SizeBytes}");
-            if (file.Type == MediaType.Video)
-            {
-                Console.WriteLine($"  DurationMs: {file.DurationMs}, Width: {file.Width}, Height: {file.Height}");
-            }
-            Console.WriteLine($"  Hash: {file.Hash}");
-            Console.WriteLine($"  ThumbnailPath: {file.ThumbnailPath}");
-        }
-
-        var finder = new DuplicateFinder();
-        var duplicates = finder.FindDuplicates(DuplicateService.AllFiles);
-
-        Console.WriteLine($"Total duplicate groups: {duplicates.Count}");
-        foreach (var key in duplicates.Keys)
-        {
-            Console.WriteLine($"Duplicate group: {key} | Count: {duplicates[key].Count}");
-            foreach (var f in duplicates[key])
-            {
-                Console.WriteLine($"  - {f.FileName}");
-            }
-        }
-
-        Console.WriteLine("=== End Debug ===");
-    }
     void LoadSubGroups()
     {
         var files = DuplicateService.AllFiles
@@ -138,37 +100,18 @@
             .ToList();
 
         if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
-        {
-            SubGroups = files
-                .GroupBy(f => f.Year.ToString())
-                .ToDictionary(g => g.Key, g => g.ToList());
-        }
+            SubGroups = files.GroupBy(f => f.Year.ToString()).ToDictionary(g => g.Key, g => g.ToList());
         else
-        {
-            SubGroups = files
-                .GroupBy(f => Path.GetExtension(f.FileName).ToLower())
-                .ToDictionary(g => g.Key, g => g.ToList());
-        }
+            SubGroups = files.GroupBy(f => Path.GetExtension(f.FileName).ToLower())
+                             .ToDictionary(g => g.Key, g => g.ToList());
     }
 
-    void ToggleSubGroup(string key)
-    {
-        ExpandedSubKey = ExpandedSubKey == key ? null : key;
-    }
+    void ToggleSubGroup(string key) => ExpandedSubKey = ExpandedSubKey == key ? null : key;
 
-    void Keep(MediaFile file)
-    {
-        file.Keep = true;
-        if (ExpandedSubKey != null)
-            SubGroups[ExpandedSubKey].Remove(file);
-    }
-
-    void Delete(MediaFile file)
-    {
-        file.Keep = false;
-        if (ExpandedSubKey != null)
-            SubGroups[ExpandedSubKey].Remove(file);
-    }
+    void Keep(MediaFile file) { file.Keep = true; if (ExpandedSubKey != null) SubGroups[ExpandedSubKey].Remove(file); }
+    void Delete(MediaFile file) { file.Keep = false; if (ExpandedSubKey != null) SubGroups[ExpandedSubKey].Remove(file); }
+    void KeepAll(string key) { foreach (var f in SubGroups[key]) f.Keep = true; SubGroups[key].Clear(); }
+    void DeleteAll(string key) { foreach (var f in SubGroups[key]) f.Keep = false; SubGroups[key].Clear(); }
 
     void GoNext()
     {
@@ -188,7 +131,6 @@
     void ExportStructured()
     {
         var root = Path.Combine(DuplicateService.FolderPath, "Structured");
-
         foreach (var cat in CategoryOrder)
             Directory.CreateDirectory(Path.Combine(root, cat + "s"));
 
@@ -196,10 +138,8 @@
         {
             string folder = file.MainCategory + "s";
             string destFolder = Path.Combine(root, folder);
-
             string dest = Path.Combine(destFolder, file.FileName);
             int count = 1;
-
             while (File.Exists(dest))
             {
                 var name = Path.GetFileNameWithoutExtension(file.FileName);
@@ -207,7 +147,6 @@
                 dest = Path.Combine(destFolder, $"{name}_{count}{ext}");
                 count++;
             }
-
             File.Copy(file.FullPath, dest);
         }
     }
@@ -220,36 +159,4 @@
         MediaMainCategory.Document => "#0d6efd",
         _ => "#6c757d"
     };
-
-    string GetThumbnail(string? path)
-    {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return "_content/placeholder.png";
-
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-
-        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif")
-            return $"/api/media?path={Uri.EscapeDataString(path)}";
-
-        if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv")
-        {
-            try
-            {
-                var thumbFileName = VideoThumbnailService.GenerateThumbnail(path);
-                return $"/media_temp/{thumbFileName}";
-            }
-            catch
-            {
-                return "_content/video-icon.png";
-            }
-        }
-
-        if (ext is ".mp3" or ".wav" or ".aac")
-            return "_content/audio-icon.png";
-
-        if (ext is ".pdf" or ".doc" or ".docx" or ".xls" or ".xlsx" or ".txt")
-            return "_content/file-icon.png";
-
-        return "_content/file-icon.png";
-    }
 }

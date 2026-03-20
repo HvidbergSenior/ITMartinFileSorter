@@ -11,7 +11,7 @@
 
     @if (!DuplicateService.AllFiles.Any())
     {
-        <!-- First run: show folder input and scan -->
+        <!-- First run: folder input -->
         <div class="folder-input d-flex mb-3">
             <input type="text" @bind="FolderPath" placeholder="Enter folder path..." class="form-control me-2" />
             <button class="btn btn-primary" @onclick="ScanFolder" disabled="@IsScanning">
@@ -44,18 +44,10 @@
         }
         else
         {
-            <!-- After duplicates handled: show total first row -->
-            <div class="d-flex flex-wrap gap-3 mb-3">
-                <div class="p-3 text-center"
-                     style="background-color:#6c757d; color:white; border-radius:5px; width:180px;">
-                    <strong>Total</strong><br />
-                    @TotalFiles files<br />
-                    @FormatSize(TotalSizeBytes)
-                </div>
-            </div>
+            <!-- After duplicates handled: category boxes -->
+            <h4>File Summary</h4>
 
-            <!-- Second row: category boxes -->
-            <div class="d-flex flex-wrap gap-3 mb-3">
+            <div class="d-flex flex-wrap gap-3 mt-3">
                 @foreach (var cat in CategoryOrder)
                 {
                     var count = GetFileCount(cat);
@@ -71,6 +63,13 @@
                         @count files
                     </div>
                 }
+
+                <div class="p-3 text-center"
+                     style="background-color:#6c757d; color:white; border-radius:5px; width:180px;">
+                    <strong>Total</strong><br />
+                    @TotalFiles files<br />
+                    @FormatSize(TotalSizeBytes)
+                </div>
             </div>
         }
     }
@@ -116,7 +115,6 @@
                 file.WorkingPath = file.FullPath;
                 file.Keep = false;
 
-                // Hash
                 try
                 {
                     var hash = HashService.ComputeHash(file.FullPath);
@@ -127,7 +125,7 @@
                     file.SetHash($"{file.SizeBytes}_{file.FileName}");
                 }
 
-                // Thumbnails only for images
+                // Only images get thumbnails
                 var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
                 if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif")
                     file.ThumbnailPath = $"/api/media?path={Uri.EscapeDataString(file.FullPath)}";
@@ -153,11 +151,9 @@
         }
     }
 
-    int GetFileCount(MediaMainCategory cat) =>
-        DuplicateService.AllFiles.Count(f => f.MainCategory == cat); // all files, not just Keep
-
-    int TotalFiles => DuplicateService.AllFiles.Count;
-    long TotalSizeBytes => DuplicateService.AllFiles.Sum(f => f.SizeBytes);
+    int GetFileCount(MediaMainCategory cat) => DuplicateService.AllFiles.Count(f => f.MainCategory == cat && f.Keep);
+    int TotalFiles => DuplicateService.AllFiles.Count(f => f.Keep);
+    long TotalSizeBytes => DuplicateService.AllFiles.Where(f => f.Keep).Sum(f => f.SizeBytes);
 
     string FormatSize(long bytes)
     {
@@ -174,17 +170,7 @@
 
     void GoToDuplicates() => Navigation.NavigateTo("/duplicates");
 
-    void GoToCategory(MediaMainCategory cat)
-    {
-        Navigation.NavigateTo(cat switch
-        {
-            MediaMainCategory.Document => "/documents",
-            MediaMainCategory.Audio => "/audio",
-            MediaMainCategory.Image => "/images",
-            MediaMainCategory.Video => "/videos",
-            _ => "/"
-        });
-    }
+    void GoToCategory(MediaMainCategory cat) => Navigation.NavigateTo($"/category-step/{cat}");
 
     string GetMainColor(MediaMainCategory main) => main switch
     {
