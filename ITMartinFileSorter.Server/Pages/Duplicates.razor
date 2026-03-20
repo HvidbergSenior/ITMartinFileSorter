@@ -31,9 +31,6 @@
             <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h5 style="color:@GetMainColor(category)">@category</h5>
-                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteAllInCategory(category)">
-                        Delete All in Category
-                    </button>
                 </div>
 
                 @foreach (var group in groups)
@@ -68,18 +65,14 @@
                                 }
 
                                 <div style="font-size:0.75em;">@Path.GetFileName(file.FullPath)</div>
-
-                                <button class="btn btn-sm btn-success mt-1 me-1" @onclick="() => Keep(file)">Keep</button>
-                                <button class="btn btn-sm btn-danger mt-1" @onclick="() => Delete(file)">Delete</button>
                             </div>
                         }
                     </div>
 
-                    <div class="mb-3">
-                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteOneInGroup(group)">
-                            Delete One in This Duplicate Group
-                        </button>
-                    </div>
+                    <!-- SINGLE BUTTON: Delete all but one -->
+                    <button class="btn btn-sm btn-danger mb-3" @onclick="() => DeleteAllButOne(group)">
+                        Delete All But One in This Duplicate Group
+                    </button>
                 }
             </div>
         }
@@ -91,7 +84,7 @@
         @if (!AllGroupsHandled)
         {
             <div class="text-danger mt-2">
-                ⚠ You must handle (keep or delete) all duplicates before continuing.
+                ⚠ You must handle all duplicate groups before continuing.
             </div>
         }
     }
@@ -109,7 +102,7 @@
     bool HasDuplicates => DuplicateService.AllFiles.Any(f => !f.Keep);
 
     bool AllGroupsHandled =>
-        DuplicateService.DuplicateGroups.All(g => g.Any(f => f.Keep));
+        DuplicateService.DuplicateGroups.All(g => g.Count == 1 || g.Any(f => f.Keep));
 
     string GetMainColor(MediaMainCategory main) => main switch
     {
@@ -120,41 +113,24 @@
         _ => "#6c757d"
     };
 
-    void Keep(MediaFile file)
+    void DeleteAllButOne(IGrouping<string, MediaFile> group)
     {
-        file.Keep = true;
-        DuplicateService.DuplicateGroups = RebuildGroups();
-    }
-
-    void Delete(MediaFile file)
-    {
-        file.Keep = false;
-        DuplicateService.AllFiles.Remove(file);
-        DuplicateService.DuplicateGroups = RebuildGroups();
-    }
-
-    void DeleteAllInCategory(MediaMainCategory category)
-    {
-        var toDelete = DuplicateService.AllFiles
-            .Where(f => f.MainCategory == category)
-            .ToList();
-
-        foreach (var file in toDelete)
+        bool first = true;
+        foreach (var file in group.ToList())
         {
-            file.Keep = false;
-            DuplicateService.AllFiles.Remove(file);
+            if (first)
+            {
+                file.Keep = true; // keep first file
+                first = false;
+            }
+            else
+            {
+                file.Keep = false;
+                DuplicateService.AllFiles.Remove(file);
+            }
         }
 
         DuplicateService.DuplicateGroups = RebuildGroups();
-    }
-
-    void DeleteOneInGroup(IGrouping<string, MediaFile> group)
-    {
-        var file = group.FirstOrDefault(f => !f.Keep);
-        if (file != null)
-        {
-            Delete(file);
-        }
     }
 
     void Continue()
