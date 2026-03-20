@@ -6,8 +6,7 @@
         Audio = 0,
         Video = 1,
         Document = 2,
-        Image = 3,
-        Duplicate = 4
+        Image = 3
     }
 
     // Type-specific subcategories

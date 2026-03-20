@@ -32,6 +32,7 @@
                 <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
                     <img src="@GetThumbnail(file.WorkingPath)" style="width:100%; height:80px; object-fit:cover;" />
                     <div style="font-size:0.75em;">@Path.GetFileName(file.FullPath)</div>
+
                     <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file)">Keep</button>
                     <button class="btn btn-sm btn-danger mt-1" @onclick="() => Delete(file)">Delete</button>
                 </div>
@@ -44,9 +45,11 @@
             Next Category →
         </button>
 
-        @if (CurrentCategory == MediaMainCategory.Video)
+        @if (CurrentCategory == CategoryOrder.Last())
         {
-            <button class="btn btn-success ms-2" @onclick="ExportStructured">Finish & Export</button>
+            <button class="btn btn-success ms-2" @onclick="ExportStructured">
+                Finish & Export
+            </button>
         }
 
         @if (!CanMoveNext && SubGroups.Any())
@@ -60,7 +63,7 @@
 
 @code {
     [Parameter]
-    public string CategoryString { get; set; } = MediaMainCategory.Image.ToString();
+    public string CategoryString { get; set; } = "image";
 
     private MediaMainCategory CurrentCategory { get; set; }
 
@@ -69,11 +72,12 @@
 
     bool CanMoveNext => !SubGroups.Any() || SubGroups.All(g => g.Value.Count == 0);
 
-    // Only two steps in version 1
     private readonly MediaMainCategory[] CategoryOrder = new[]
     {
         MediaMainCategory.Image,
-        MediaMainCategory.Video
+        MediaMainCategory.Video,
+        MediaMainCategory.Audio,
+        MediaMainCategory.Document
     };
 
     protected override void OnInitialized()
@@ -82,6 +86,8 @@
         {
             "image" or "images" => MediaMainCategory.Image,
             "video" or "videos" => MediaMainCategory.Video,
+            "audio" or "audios" => MediaMainCategory.Audio,
+            "document" or "documents" => MediaMainCategory.Document,
             _ => MediaMainCategory.Image
         };
 
@@ -94,34 +100,31 @@
             .Where(f => f.MainCategory == CurrentCategory)
             .ToList();
 
-        if (CurrentCategory == MediaMainCategory.Image)
+        // Images & Videos → group by Year
+        if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
         {
-            // Group images by year
-            SubGroups = files.GroupBy(f => f.Year.ToString())
+            SubGroups = files
+                .GroupBy(f => f.Year.ToString())
                 .ToDictionary(g => g.Key, g => g.ToList());
         }
-        else // Videos
+        else
         {
-            // Group videos by year
-            SubGroups = files.GroupBy(f => f.Year.ToString())
+            // Audio & Documents → group by extension
+            SubGroups = files
+                .GroupBy(f => Path.GetExtension(f.FileName).ToLower())
                 .ToDictionary(g => g.Key, g => g.ToList());
         }
     }
 
     void ToggleSubGroup(string key)
     {
-        if (ExpandedSubKey == key)
-        {
-            ExpandedSubKey = null;
-            return;
-        }
-
-        ExpandedSubKey = key;
+        ExpandedSubKey = ExpandedSubKey == key ? null : key;
     }
 
     void Keep(MediaFile file)
     {
         file.Keep = true;
+
         if (ExpandedSubKey != null)
             SubGroups[ExpandedSubKey].Remove(file);
     }
@@ -129,38 +132,44 @@
     void Delete(MediaFile file)
     {
         file.Keep = false;
+
         if (ExpandedSubKey != null)
             SubGroups[ExpandedSubKey].Remove(file);
     }
 
     void GoNext()
     {
-        // Only two steps: Images -> Videos
-        MediaMainCategory next = CurrentCategory == MediaMainCategory.Image
-            ? MediaMainCategory.Video
-            : MediaMainCategory.Video;
+        var index = Array.IndexOf(CategoryOrder, CurrentCategory);
 
-        Navigation.NavigateTo($"/category-step/{next}");
+        if (index < CategoryOrder.Length - 1)
+        {
+            var next = CategoryOrder[index + 1];
+            Navigation.NavigateTo($"/category-step/{next}");
+        }
+        else
+        {
+            ExportStructured();
+            Navigation.NavigateTo("/");
+        }
     }
 
     void ExportStructured()
     {
         var root = Path.Combine(DuplicateService.FolderPath, "Structured");
-        foreach (var cat in new[] { "Images", "Videos" })
-            Directory.CreateDirectory(Path.Combine(root, cat));
+
+        foreach (var cat in CategoryOrder)
+        {
+            Directory.CreateDirectory(Path.Combine(root, cat + "s"));
+        }
 
         foreach (var file in DuplicateService.AllFiles.Where(f => f.Keep))
         {
-            string folder = file.MainCategory switch
-            {
-                MediaMainCategory.Image => "Images",
-                MediaMainCategory.Video => "Videos",
-                _ => "Others"
-            };
-
+            string folder = file.MainCategory + "s";
             string destFolder = Path.Combine(root, folder);
+
             string dest = Path.Combine(destFolder, file.FileName);
             int count = 1;
+
             while (File.Exists(dest))
             {
                 var name = Path.GetFileNameWithoutExtension(file.FileName);
@@ -177,31 +186,30 @@
     {
         MediaMainCategory.Video => "#dc3545",
         MediaMainCategory.Image => "#28a745",
+        MediaMainCategory.Audio => "#ffc107",
+        MediaMainCategory.Document => "#0d6efd",
         _ => "#6c757d"
     };
 
     string GetThumbnail(string? path)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return "_content/placeholder.png"; // fallback for missing files
+            return "_content/placeholder.png";
 
         var ext = Path.GetExtension(path).ToLowerInvariant();
 
-        // Images
-        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" 
-            or ".tiff" or ".tif" or ".heic" or ".heif" or ".avif")
-        {
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif")
             return $"/api/media?path={Uri.EscapeDataString(path)}";
-        }
 
-        // Videos
-        if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv" or ".webm" or ".flv")
-        {
-            // currently fallback to generic video icon
+        if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv")
             return "_content/video-icon.png";
-        }
 
-        // Other files
+        if (ext is ".mp3" or ".wav" or ".aac")
+            return "_content/audio-icon.png";
+
+        if (ext is ".pdf" or ".doc" or ".docx" or ".xls" or ".xlsx" or ".txt")
+            return "_content/file-icon.png";
+
         return "_content/file-icon.png";
     }
 }

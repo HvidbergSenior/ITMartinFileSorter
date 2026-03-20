@@ -1,146 +1,48 @@
 ﻿@page "/duplicates"
 @using ITMartinFileSorter.Application.Services
-@using ITMartinFileSorter.Application.Helpers
 @inject DuplicateService DuplicateService
-@inject VideoThumbnailService VideoThumbnailService
 @inject NavigationManager Navigation
 
 <div class="container mt-4">
-    <h4>Step 1: Handle Duplicates</h4>
-    <p>All duplicates must be handled before continuing.</p>
+    <h4>Handle Duplicates</h4>
 
-    <div class="all-files-summary p-2 mb-3" style="background-color:#e0f7fa; border-radius:4px;">
-        <strong>All Files:</strong>
-        @FileSizeFormatter.FormatCountSize(DuplicateService.AllFiles, MediaType.Image) |
-        @FileSizeFormatter.FormatCountSize(DuplicateService.AllFiles, MediaType.Video) |
-        @FileSizeFormatter.FormatCountSize(DuplicateService.AllFiles, MediaType.Audio) |
-        @FileSizeFormatter.FormatCountSize(DuplicateService.AllFiles, MediaType.Document)
-    </div>
-
-    @if (!DuplicateService.DuplicateGroups.Any() || DuplicateService.DuplicateGroups.All(g => g.Count <= 1))
+    @if (!HasDuplicates)
     {
         <div class="alert alert-success">
-            No duplicates
-            <button class="btn btn-sm btn-primary ms-2" @onclick="GoNext">Continue</button>
+            No duplicates found
+            <button class="btn btn-primary ms-2" @onclick="Continue">Continue</button>
         </div>
     }
     else
     {
-        <div class="mb-3">
-            <button class="btn btn-warning me-2" @onclick="PickBestForRemaining">
-                Pick Best for Remaining
-            </button>
-        </div>
-
         @foreach (var group in DuplicateService.DuplicateGroups.Where(g => g.Count > 1))
         {
-            var best = group.OrderByDescending(f => f.SizeBytes).First();
-            <div class="duplicate-group mb-3 border p-2" style="border-radius:4px;">
-                <div class="d-flex gap-2 flex-wrap align-items-start">
-                    @foreach (var file in group)
-                    {
-                        <div class="file-card text-center p-2" style="width:160px; border:2px solid @(file == best ? "green" : "#ccc"); border-radius:4px;">
-                            <img src="@GetThumbnail(file)" style="width:100%; height:100px; object-fit:cover; border-radius:2px;" />
-                            <div style="font-size:0.8em; margin-top:4px;">
-                                @Path.GetFileName(file.FullPath)<br />
-                                @FileSizeFormatter.FormatCountSize(file.SizeBytes)
-                            </div>
-                            @if (file == best)
-                            {
-                                <div class="text-success" style="font-size:0.75em;">BEST</div>
-                            }
-                            <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file, group)">Keep</button>
-                            <button class="btn btn-sm btn-danger mt-1" @onclick="() => DeleteFile(file)">Delete</button>
-                        </div>
-                    }
-                </div>
-                <button class="btn btn-warning btn-sm mt-2" @onclick="() => Keep(best, group)">Keep Best (auto)</button>
+            <div class="border p-2 mb-2">
+                @foreach (var file in group)
+                {
+                    <div>@file.FileName</div>
+                }
             </div>
         }
+
+        <button class="btn btn-success mt-3" @onclick="Continue">Continue</button>
     }
 </div>
 
 @code {
-    protected override void OnInitialized() => DuplicateService.OnChange += StateHasChanged;
-    public void Dispose() => DuplicateService.OnChange -= StateHasChanged;
+    bool HasDuplicates => DuplicateService.DuplicateGroups.Any(g => g.Count > 1);
 
-    string GetThumbnail(MediaFile file)
+    protected override void OnInitialized()
     {
-        if (file.Type == MediaType.Image)
-            return string.IsNullOrEmpty(file.WorkingPath) || !File.Exists(file.WorkingPath)
-                ? "_content/placeholder.png"
-                : $"/api/media?path={Uri.EscapeDataString(file.WorkingPath.Replace("\\","/"))}";
-
-        if (file.Type == MediaType.Video)
+        if (!HasDuplicates)
         {
-            try
-            {
-                if (string.IsNullOrEmpty(file.ThumbnailPath))
-                    file.ThumbnailPath = VideoThumbnailService.GenerateThumbnail(file.FullPath);
-
-                var thumbFullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "media_temp", file.ThumbnailPath ?? "");
-                if (!string.IsNullOrEmpty(file.ThumbnailPath) && File.Exists(thumbFullPath))
-                    return $"/media_temp/{file.ThumbnailPath}?t={DateTime.Now.Ticks}";
-            }
-            catch { }
-
-            return "_content/video-icon.png";
+            DuplicateService.DuplicatesHandled = true;
         }
-
-        return "_content/file-icon.png";
     }
 
-    void PickBestForRemaining()
+    void Continue()
     {
-        foreach (var group in DuplicateService.DuplicateGroups.Where(g => g.Count > 1))
-        {
-            var best = group.OrderByDescending(f => f.SizeBytes).First();
-            Keep(best, group);
-        }
-
         DuplicateService.DuplicatesHandled = true;
-        DuplicateService.NotifyStateChanged();
-    }
-
-    void Keep(MediaFile selected, List<MediaFile> group)
-    {
-        var toKeep = new List<MediaFile> { selected };
-        var toDelete = group.Except(toKeep).ToList();
-
-        foreach (var file in toDelete)
-            DeleteFile(file);
-
-        group.Clear();
-        group.AddRange(toKeep);
-        StateHasChanged();
-    }
-
-    void DeleteFile(MediaFile file)
-    {
-        try
-        {
-            if (!string.IsNullOrEmpty(file.WorkingPath) && File.Exists(file.WorkingPath))
-                File.Delete(file.WorkingPath);
-        }
-        catch { }
-
-        foreach (var group in DuplicateService.DuplicateGroups)
-            group.Remove(file);
-
-        DuplicateService.AllFiles.Remove(file);
-        StateHasChanged();
-    }
-
-    void GoNext()
-    {
-        Navigation.NavigateTo(DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Audio)
-            ? "/audio"
-            : DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Document)
-            ? "/documents"
-            : DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Image)
-            ? "/images"
-            : DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Video)
-            ? "/videos"
-            : "/");
+        Navigation.NavigateTo("/");
     }
 }

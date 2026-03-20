@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Application.UseCases
+@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject IFileScanner FileScanner
 @inject IHashService HashService
@@ -29,37 +30,30 @@
 
     @if (DuplicateService.AllFiles.Any())
     {
-        @if (DuplicateService.DuplicateGroups.Any(g => g.Count > 1) && !DuplicateService.DuplicatesHandled)
+        @if (!DuplicateService.DuplicatesHandled)
         {
             <div class="alert alert-warning">
                 ⚠ You must handle duplicates before continuing
-                <button class="btn btn-sm btn-secondary ms-2" @onclick="GoToDuplicates" disabled="@IsNavigating">
+                <button class="btn btn-sm btn-secondary ms-2" @onclick="GoToDuplicates">
                     Go to Duplicates
                 </button>
             </div>
         }
         else
         {
-            <h4>Step 3–5: File Categories</h4>
-
-            <div class="summary-box mb-4 p-3" style="border:1px solid #ccc; border-radius:5px;">
-                @foreach (var cat in CategoryOrder)
-                {
-                    <div class="d-flex justify-content-between mb-1">
-                        <span style="font-weight:bold">@cat</span>
-                        <span>@GetFileCount(cat) files, @FormatSize(GetFileSize(cat))</span>
-                    </div>
-                }
-            </div>
+            <h4>Categories</h4>
 
             <div class="d-flex flex-wrap gap-3">
                 @foreach (var cat in CategoryOrder)
                 {
-                    <div class="category-box mb-3 p-3 text-center"
+                    var count = GetFileCount(cat);
+                    if (count == 0) continue;
+
+                    <div class="p-3 text-center"
                          style="background-color:@GetMainColor(cat); border-radius:5px; cursor:pointer; width:150px"
                          @onclick="() => GoToCategory(cat)">
                         <strong>@cat</strong><br />
-                        @GetFileCount(cat) files
+                        @count files
                     </div>
                 }
             </div>
@@ -75,15 +69,15 @@
     }
 
     bool IsScanning = false;
-    bool IsNavigating = false; // prevents blink
-
     int CurrentFileIndex = 0;
     string CurrentFileName = "";
 
     readonly MediaMainCategory[] CategoryOrder = new[]
     {
         MediaMainCategory.Image,
-        MediaMainCategory.Video
+        MediaMainCategory.Video,
+        MediaMainCategory.Audio,
+        MediaMainCategory.Document
     };
 
     async Task ScanFolder()
@@ -92,8 +86,6 @@
             return;
 
         IsScanning = true;
-        CurrentFileIndex = 0;
-        CurrentFileName = "";
         DuplicateService.AllFiles.Clear();
 
         await InvokeAsync(StateHasChanged);
@@ -102,42 +94,38 @@
         {
             var scanned = new List<MediaFile>();
 
-            await Task.Run(async () =>
+            foreach (var file in FileScanner.ScanFolder(FolderPath, (i, path) =>
+                     {
+                         CurrentFileIndex = i;
+                         CurrentFileName = Path.GetFileName(path);
+                     }))
             {
-                foreach (var file in FileScanner.ScanFolder(FolderPath, (i, path) =>
-                         {
-                             CurrentFileIndex = i;
-                             CurrentFileName = Path.GetFileName(path);
-                         }))
-                {
-                    file.WorkingPath = file.FullPath;
-                    file.Keep = false;
-                    scanned.Add(file);
+                file.WorkingPath = file.FullPath;
+                file.Keep = false;
+                scanned.Add(file);
+            }
 
-                    if (CurrentFileIndex % 10 == 0)
-                        await InvokeAsync(StateHasChanged);
+            // Hashing (fallback-safe)
+            foreach (var file in scanned)
+            {
+                try
+                {
+                    var hash = HashService.ComputeHash(file.FullPath);
+                    file.SetHash(hash ?? $"{file.SizeBytes}_{file.FileName}");
                 }
-            });
-
-            // Hashing
-            var groupedBySize = scanned.GroupBy(f => f.SizeBytes);
-            foreach (var group in groupedBySize)
-            {
-                if (group.Count() == 1) continue;
-                foreach (var file in group)
+                catch
                 {
-                    try { file.SetHash(HashService.ComputeHash(file.FullPath)); }
-                    catch { file.SetHash(null); }
+                    file.SetHash($"{file.SizeBytes}_{file.FileName}");
                 }
             }
 
-            // Duplicates
             var finder = new DuplicateFinder();
             var duplicates = finder.FindDuplicates(scanned);
 
             DuplicateService.AllFiles = scanned;
             DuplicateService.DuplicateGroups = duplicates.Values.ToList();
             DuplicateService.DuplicatesHandled = false;
+
             DuplicateService.NotifyStateChanged();
         }
         finally
@@ -150,35 +138,22 @@
     int GetFileCount(MediaMainCategory cat) =>
         DuplicateService.AllFiles.Count(f => f.MainCategory == cat);
 
-    long GetFileSize(MediaMainCategory cat) =>
-        DuplicateService.AllFiles.Where(f => f.MainCategory == cat).Sum(f => f.SizeBytes);
-
-    string FormatSize(long size)
+    void GoToDuplicates()
     {
-        if (size < 1024) return $"{size} B";
-        if (size < 1024 * 1024) return $"{(size / 1024.0):F1} KB";
-        if (size < 1024 * 1024 * 1024) return $"{(size / 1024.0 / 1024.0):F1} MB";
-        return $"{(size / 1024.0 / 1024.0 / 1024.0):F1} GB";
+        Navigation.NavigateTo("/duplicates");
     }
 
-    
-    async Task GoToDuplicates()
+    void GoToCategory(MediaMainCategory cat)
     {
-        if (IsNavigating) return;
-        IsNavigating = true;
-
-        await InvokeAsync(() =>
-        {
-            Navigation.NavigateTo("/duplicates");
-        });
-    }
-    void GoToCategory(MediaMainCategory cat) =>
         Navigation.NavigateTo($"/category-step/{cat}");
+    }
 
     string GetMainColor(MediaMainCategory main) => main switch
     {
         MediaMainCategory.Video => "#dc3545",
         MediaMainCategory.Image => "#28a745",
+        MediaMainCategory.Audio => "#ffc107",
+        MediaMainCategory.Document => "#0d6efd",
         _ => "#6c757d"
     };
 }
