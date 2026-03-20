@@ -84,7 +84,6 @@
             </div>
         }
 
-        <!-- Continue is disabled until all duplicate groups handled -->
         <button class="btn btn-success mt-3" @onclick="Continue" disabled="@(!AllGroupsHandled)">
             Continue
         </button>
@@ -109,15 +108,8 @@
 
     bool HasDuplicates => DuplicateService.AllFiles.Any(f => !f.Keep);
 
-    bool AllGroupsHandled
-    {
-        get
-        {
-            // For each group of duplicates, at least one file must be kept
-            return DuplicateService.DuplicateGroups
-                .All(g => g.Any(f => f.Keep) || g.All(f => !DuplicateService.AllFiles.Contains(f)));
-        }
-    }
+    bool AllGroupsHandled =>
+        DuplicateService.DuplicateGroups.All(g => g.Any(f => f.Keep));
 
     string GetMainColor(MediaMainCategory main) => main switch
     {

@@ -8,6 +8,7 @@
 @inject NavigationManager Navigation
 
 <div class="container mt-4">
+
     <div class="folder-input d-flex mb-3">
         <input type="text" @bind="FolderPath" placeholder="Enter folder path..." class="form-control me-2" />
         <button class="btn btn-primary" @onclick="ScanFolder" disabled="@IsScanning">
@@ -35,6 +36,31 @@
                 <button class="btn btn-sm btn-secondary ms-2" @onclick="GoToDuplicates">
                     Go to Duplicates
                 </button>
+            </div>
+        }
+        else
+        {
+            <h4>File Summary</h4>
+
+            <div class="d-flex flex-wrap gap-3 mt-3">
+                @foreach (var cat in CategoryOrder)
+                {
+                    var count = GetFileCount(cat);
+                    if (count == 0) continue;
+
+                    <div class="p-3 text-center"
+                         style="background-color:@GetMainColor(cat); border-radius:5px; width:150px;">
+                        <strong>@cat</strong><br />
+                        @count files
+                    </div>
+                }
+
+                <div class="p-3 text-center"
+                     style="background-color:#6c757d; color:white; border-radius:5px; width:180px;">
+                    <strong>Total</strong><br />
+                    @TotalFiles files<br />
+                    @FormatSize(TotalSizeBytes)
+                </div>
             </div>
         }
     }
@@ -80,15 +106,7 @@
                 file.WorkingPath = file.FullPath;
                 file.Keep = false;
 
-                // Debug log
-                Console.WriteLine($"Scanned: {file.FullPath} - Category: {file.MainCategory}");
-
-                scanned.Add(file);
-            }
-
-            // Compute hashes and set thumbnails for images only
-            foreach (var file in scanned)
-            {
+                // Hash
                 try
                 {
                     var hash = HashService.ComputeHash(file.FullPath);
@@ -99,34 +117,35 @@
                     file.SetHash($"{file.SizeBytes}_{file.FileName}");
                 }
 
+                // Generate thumbnail for images
                 var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
                 if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif")
                 {
-                    // Use API endpoint or wwwroot to serve image
                     file.ThumbnailPath = $"/api/media?path={Uri.EscapeDataString(file.FullPath)}";
                 }
-                else if (file.MainCategory == MediaMainCategory.Video)
+                else if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv")
                 {
-                    file.ThumbnailPath = "_content/video-icon.png"; // placeholder
+                    file.ThumbnailPath = "_content/video-icon.png";
                 }
-                else if (file.MainCategory == MediaMainCategory.Audio)
+                else if (ext is ".mp3" or ".wav" or ".aac")
                 {
-                    file.ThumbnailPath = "_content/audio-icon.png"; // placeholder
+                    file.ThumbnailPath = "_content/audio-icon.png";
                 }
                 else
                 {
-                    file.ThumbnailPath = "_content/file-icon.png"; // placeholder for docs
+                    file.ThumbnailPath = "_content/file-icon.png";
                 }
+
+                scanned.Add(file);
             }
+
+            DuplicateService.AllFiles = scanned;
 
             // Detect duplicates
             var finder = new DuplicateFinder();
-            var duplicates = finder.FindDuplicates(scanned);
+            DuplicateService.DuplicateGroups = finder.FindDuplicates(scanned).Values.ToList();
 
-            DuplicateService.AllFiles = scanned;
-            DuplicateService.DuplicateGroups = duplicates.Values.ToList();
             DuplicateService.DuplicatesHandled = false;
-
             DuplicateService.NotifyStateChanged();
         }
         finally
@@ -136,8 +155,34 @@
         }
     }
 
-    void GoToDuplicates()
+    int GetFileCount(MediaMainCategory cat) =>
+        DuplicateService.AllFiles.Count(f => f.MainCategory == cat);
+
+    int TotalFiles => DuplicateService.AllFiles.Count;
+
+    long TotalSizeBytes => DuplicateService.AllFiles.Sum(f => f.SizeBytes);
+
+    string FormatSize(long bytes)
     {
-        Navigation.NavigateTo("/duplicates");
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+        return $"{len:0.#} {sizes[order]}";
     }
+
+    void GoToDuplicates() => Navigation.NavigateTo("/duplicates");
+
+    string GetMainColor(MediaMainCategory main) => main switch
+    {
+        MediaMainCategory.Video => "#dc3545",
+        MediaMainCategory.Image => "#28a745",
+        MediaMainCategory.Audio => "#ffc107",
+        MediaMainCategory.Document => "#0d6efd",
+        _ => "#6c757d"
+    };
 }
