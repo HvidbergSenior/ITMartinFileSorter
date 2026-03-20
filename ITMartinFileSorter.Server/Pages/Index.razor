@@ -3,32 +3,36 @@
 @using ITMartinFileSorter.Application.UseCases
 @using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
+@inject NavigationManager Navigation
 @inject IFileScanner FileScanner
 @inject IHashService HashService
-@inject NavigationManager Navigation
 
 <div class="container mt-4">
 
-    <div class="folder-input d-flex mb-3">
-        <input type="text" @bind="FolderPath" placeholder="Enter folder path..." class="form-control me-2" />
-        <button class="btn btn-primary" @onclick="ScanFolder" disabled="@IsScanning">
-            @(IsScanning ? "Scanning..." : "Scan")
-        </button>
-    </div>
-
-    @if (IsScanning)
+    @if (!DuplicateService.AllFiles.Any())
     {
-        <div class="alert alert-info">
-            Scanned: @CurrentFileIndex files
-            @if (!string.IsNullOrEmpty(CurrentFileName))
-            {
-                <div>Current: @CurrentFileName</div>
-            }
+        <!-- First run: show folder input and scan -->
+        <div class="folder-input d-flex mb-3">
+            <input type="text" @bind="FolderPath" placeholder="Enter folder path..." class="form-control me-2" />
+            <button class="btn btn-primary" @onclick="ScanFolder" disabled="@IsScanning">
+                @(IsScanning ? "Scanning..." : "Scan")
+            </button>
         </div>
-    }
 
-    @if (DuplicateService.AllFiles.Any())
+        @if (IsScanning)
+        {
+            <div class="alert alert-info">
+                Scanned: @CurrentFileIndex files
+                @if (!string.IsNullOrEmpty(CurrentFileName))
+                {
+                    <div>Current: @CurrentFileName</div>
+                }
+            </div>
+        }
+    }
+    else
     {
+        <!-- After scanning -->
         @if (!DuplicateService.DuplicatesHandled)
         {
             <div class="alert alert-warning">
@@ -40,27 +44,33 @@
         }
         else
         {
-            <h4>File Summary</h4>
-
-            <div class="d-flex flex-wrap gap-3 mt-3">
-                @foreach (var cat in CategoryOrder)
-                {
-                    var count = GetFileCount(cat);
-                    if (count == 0) continue;
-
-                    <div class="p-3 text-center"
-                         style="background-color:@GetMainColor(cat); border-radius:5px; width:150px;">
-                        <strong>@cat</strong><br />
-                        @count files
-                    </div>
-                }
-
+            <!-- After duplicates handled: show total first row -->
+            <div class="d-flex flex-wrap gap-3 mb-3">
                 <div class="p-3 text-center"
                      style="background-color:#6c757d; color:white; border-radius:5px; width:180px;">
                     <strong>Total</strong><br />
                     @TotalFiles files<br />
                     @FormatSize(TotalSizeBytes)
                 </div>
+            </div>
+
+            <!-- Second row: category boxes -->
+            <div class="d-flex flex-wrap gap-3 mb-3">
+                @foreach (var cat in CategoryOrder)
+                {
+                    var count = GetFileCount(cat);
+                    if (count == 0) continue;
+
+                    <div class="p-3 text-center"
+                         style="background-color:@GetMainColor(cat);
+                                border-radius:5px;
+                                width:150px;
+                                cursor:pointer;"
+                         @onclick="() => GoToCategory(cat)">
+                        <strong>@cat</strong><br />
+                        @count files
+                    </div>
+                }
             </div>
         }
     }
@@ -79,10 +89,10 @@
 
     readonly MediaMainCategory[] CategoryOrder = new[]
     {
-        MediaMainCategory.Image,
-        MediaMainCategory.Video,
+        MediaMainCategory.Document,
         MediaMainCategory.Audio,
-        MediaMainCategory.Document
+        MediaMainCategory.Image,
+        MediaMainCategory.Video
     };
 
     async Task ScanFolder()
@@ -117,24 +127,12 @@
                     file.SetHash($"{file.SizeBytes}_{file.FileName}");
                 }
 
-                // Generate thumbnail for images
+                // Thumbnails only for images
                 var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
                 if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif")
-                {
                     file.ThumbnailPath = $"/api/media?path={Uri.EscapeDataString(file.FullPath)}";
-                }
-                else if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv")
-                {
-                    file.ThumbnailPath = "_content/video-icon.png";
-                }
-                else if (ext is ".mp3" or ".wav" or ".aac")
-                {
-                    file.ThumbnailPath = "_content/audio-icon.png";
-                }
                 else
-                {
                     file.ThumbnailPath = "_content/file-icon.png";
-                }
 
                 scanned.Add(file);
             }
@@ -156,10 +154,9 @@
     }
 
     int GetFileCount(MediaMainCategory cat) =>
-        DuplicateService.AllFiles.Count(f => f.MainCategory == cat);
+        DuplicateService.AllFiles.Count(f => f.MainCategory == cat); // all files, not just Keep
 
     int TotalFiles => DuplicateService.AllFiles.Count;
-
     long TotalSizeBytes => DuplicateService.AllFiles.Sum(f => f.SizeBytes);
 
     string FormatSize(long bytes)
@@ -176,6 +173,18 @@
     }
 
     void GoToDuplicates() => Navigation.NavigateTo("/duplicates");
+
+    void GoToCategory(MediaMainCategory cat)
+    {
+        Navigation.NavigateTo(cat switch
+        {
+            MediaMainCategory.Document => "/documents",
+            MediaMainCategory.Audio => "/audio",
+            MediaMainCategory.Image => "/images",
+            MediaMainCategory.Video => "/videos",
+            _ => "/"
+        });
+    }
 
     string GetMainColor(MediaMainCategory main) => main switch
     {

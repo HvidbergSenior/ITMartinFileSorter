@@ -8,7 +8,7 @@
 @if (!ImageFiles.Any())
 {
     <div class="alert alert-info">No image files found.</div>
-    <button class="btn btn-primary" @onclick="GoNext">Next Step</button>
+    <button class="btn btn-primary" @onclick="GoNext">Back to Overview</button>
 }
 else
 {
@@ -18,6 +18,9 @@ else
             <div class="all-files-card p-3 text-center" style="width:200px; cursor:pointer"
                  @onclick="() => ToggleSubGroup(group)">
                 <strong>@group</strong><br />@SubGroups[group].Count files
+                <div class="mt-1">
+                    <button class="btn btn-sm btn-success" @onclick="() => KeepAllInGroup(group)">Keep All</button>
+                </div>
             </div>
         }
     </div>
@@ -48,7 +51,12 @@ else
 
     protected override void OnInitialized()
     {
-        // Group by Year-Month
+        GroupFiles();
+    }
+
+    void GroupFiles()
+    {
+        // Each file appears in one subgroup: Year-Month
         SubGroups = ImageFiles
             .GroupBy(f => $"{f.Year}-{f.Month:D2}")
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -56,24 +64,28 @@ else
 
     void ToggleSubGroup(string key) => ExpandedSubKey = ExpandedSubKey == key ? null : key;
 
+    void KeepAllInGroup(string key)
+    {
+        foreach (var file in SubGroups[key])
+            file.Keep = true;
+    }
+
     void Accept()
     {
-        foreach (var file in ImageFiles) file.Keep = true;
+        foreach (var file in ImageFiles)
+            file.Keep = true;
+
         GoNext();
     }
 
-    void GoNext()
-    {
-        Navigation.NavigateTo(DuplicateService.AllFiles.Any(f => f.MainCategory == MediaMainCategory.Video)
-            ? "/videos"
-            : "/");
-    }
+    void GoNext() => Navigation.NavigateTo("/"); // return to overview
 
     string GetThumbnail(string? path)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return "_content/placeholder.png";
         var ext = Path.GetExtension(path).ToLowerInvariant();
-        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif") return $"/api/media?path={Uri.EscapeDataString(path)}";
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif") 
+            return $"/api/media?path={Uri.EscapeDataString(path)}";
         return "_content/file-icon.png";
     }
 }
