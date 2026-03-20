@@ -4,7 +4,6 @@
 @using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
-@inject VideoThumbnailService VideoThumbnailService
 
 <div class="container mt-4">
     <h4>Handle Duplicates</h4>
@@ -43,9 +42,31 @@
                         @foreach (var file in group)
                         {
                             <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
-                                <img src="@file.ThumbnailPath"
-                                     alt="@file.FileName"
-                                     style="width:100%; height:80px; object-fit:cover;" />
+                                @if (file.MainCategory == MediaMainCategory.Image)
+                                {
+                                    <img src="@file.ThumbnailPath"
+                                         alt="@file.FileName"
+                                         style="width:100%; height:80px; object-fit:cover;" />
+                                }
+                                else if (file.MainCategory == MediaMainCategory.Video)
+                                {
+                                    <div style="width:100%; height:80px; background:#000; color:#fff; display:flex; align-items:center; justify-content:center;">
+                                        VIDEO
+                                    </div>
+                                }
+                                else if (file.MainCategory == MediaMainCategory.Audio)
+                                {
+                                    <div style="width:100%; height:80px; background:#f0f0f0; display:flex; align-items:center; justify-content:center;">
+                                        AUDIO
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div style="width:100%; height:80px; background:#e0e0e0; display:flex; align-items:center; justify-content:center;">
+                                        DOC
+                                    </div>
+                                }
+
                                 <div style="font-size:0.75em;">@Path.GetFileName(file.FullPath)</div>
 
                                 <button class="btn btn-sm btn-success mt-1 me-1" @onclick="() => Keep(file)">Keep</button>
@@ -72,12 +93,6 @@
         MediaMainCategory.Document
     };
 
-    protected override void OnInitialized()
-    {
-        // Always go through duplicates page
-        DuplicateService.DuplicatesHandled = false;
-    }
-
     void Continue()
     {
         DuplicateService.DuplicatesHandled = true;
@@ -92,38 +107,6 @@
         MediaMainCategory.Document => "#0d6efd",
         _ => "#6c757d"
     };
-
-    string GetThumbnail(string? path)
-    {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return "_content/placeholder.png";
-
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-
-        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif")
-            return $"/api/media?path={Uri.EscapeDataString(path)}";
-
-        if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv")
-        {
-            try
-            {
-                var thumbFileName = VideoThumbnailService.GenerateThumbnail(path);
-                return $"/media_temp/{thumbFileName}";
-            }
-            catch
-            {
-                return "_content/video-icon.png";
-            }
-        }
-
-        if (ext is ".mp3" or ".wav" or ".aac")
-            return "_content/audio-icon.png";
-
-        if (ext is ".pdf" or ".doc" or ".docx" or ".xls" or ".xlsx" or ".txt")
-            return "_content/file-icon.png";
-
-        return "_content/file-icon.png";
-    }
 
     void Keep(MediaFile file)
     {
@@ -156,7 +139,6 @@
     List<List<MediaFile>> RebuildGroups()
     {
         var finder = new DuplicateFinder();
-        var duplicates = finder.FindDuplicates(DuplicateService.AllFiles);
-        return duplicates.Values.ToList();
+        return finder.FindDuplicates(DuplicateService.AllFiles).Values.ToList();
     }
 }
