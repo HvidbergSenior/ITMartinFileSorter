@@ -1,5 +1,6 @@
 ﻿@page "/category-step/{CategoryString}"
 @using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Application.UseCases
 @using ITMartinFileSorter.Domain.Entities
 @using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
@@ -93,8 +94,45 @@
         };
 
         LoadSubGroups();
+
+        // 🔹 DEBUG: check files and duplicates
+        DebugDuplicateService();
     }
 
+    void DebugDuplicateService()
+    {
+        Console.WriteLine("=== DuplicateService Debug ===");
+        Console.WriteLine($"Total files: {DuplicateService.AllFiles.Count}");
+
+        foreach (var file in DuplicateService.AllFiles)
+        {
+            Console.WriteLine($"File: {file.FileName}");
+            Console.WriteLine($"  Type: {file.Type}");
+            Console.WriteLine($"  Year: {file.Year}, Month: {file.Month}");
+            Console.WriteLine($"  SizeBytes: {file.SizeBytes}");
+            if (file.Type == MediaType.Video)
+            {
+                Console.WriteLine($"  DurationMs: {file.DurationMs}, Width: {file.Width}, Height: {file.Height}");
+            }
+            Console.WriteLine($"  Hash: {file.Hash}");
+            Console.WriteLine($"  ThumbnailPath: {file.ThumbnailPath}");
+        }
+
+        var finder = new DuplicateFinder();
+        var duplicates = finder.FindDuplicates(DuplicateService.AllFiles);
+
+        Console.WriteLine($"Total duplicate groups: {duplicates.Count}");
+        foreach (var key in duplicates.Keys)
+        {
+            Console.WriteLine($"Duplicate group: {key} | Count: {duplicates[key].Count}");
+            foreach (var f in duplicates[key])
+            {
+                Console.WriteLine($"  - {f.FileName}");
+            }
+        }
+
+        Console.WriteLine("=== End Debug ===");
+    }
     void LoadSubGroups()
     {
         var files = DuplicateService.AllFiles
