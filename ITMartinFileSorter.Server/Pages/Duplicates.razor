@@ -1,7 +1,10 @@
 ﻿@page "/duplicates"
 @using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Application.UseCases
+@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
+@inject VideoThumbnailService VideoThumbnailService
 
 <div class="container mt-4">
     <h4>Handle Duplicates</h4>
@@ -15,12 +18,41 @@
     }
     else
     {
-        @foreach (var group in DuplicateService.DuplicateGroups.Where(g => g.Count > 1))
+        @foreach (var category in CategoryOrder)
         {
-            <div class="border p-2 mb-2">
-                @foreach (var file in group)
+            var filesInCategory = DuplicateService.AllFiles
+                .Where(f => f.MainCategory == category)
+                .GroupBy(f => f.Hash)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            if (!filesInCategory.Any())
+                continue;
+
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 style="color:@GetMainColor(category)">@category</h5>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteAllInCategory(category)">
+                        Delete All
+                    </button>
+                </div>
+
+                @foreach (var group in filesInCategory)
                 {
-                    <div>@file.FileName</div>
+                    <div class="d-flex gap-2 flex-wrap mb-3">
+                        @foreach (var file in group)
+                        {
+                            <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
+                                <img src="@file.ThumbnailPath"
+                                     alt="@file.FileName"
+                                     style="width:100%; height:80px; object-fit:cover;" />
+                                <div style="font-size:0.75em;">@Path.GetFileName(file.FullPath)</div>
+
+                                <button class="btn btn-sm btn-success mt-1 me-1" @onclick="() => Keep(file)">Keep</button>
+                                <button class="btn btn-sm btn-danger mt-1" @onclick="() => Delete(file)">Delete</button>
+                            </div>
+                        }
+                    </div>
                 }
             </div>
         }
@@ -30,19 +62,101 @@
 </div>
 
 @code {
-    bool HasDuplicates => DuplicateService.DuplicateGroups.Any(g => g.Count > 1);
+    bool HasDuplicates => DuplicateService.AllFiles.Any(f => !f.Keep);
+
+    readonly MediaMainCategory[] CategoryOrder = new[]
+    {
+        MediaMainCategory.Image,
+        MediaMainCategory.Video,
+        MediaMainCategory.Audio,
+        MediaMainCategory.Document
+    };
 
     protected override void OnInitialized()
     {
-        if (!HasDuplicates)
-        {
-            DuplicateService.DuplicatesHandled = true;
-        }
+        // Always go through duplicates page
+        DuplicateService.DuplicatesHandled = false;
     }
 
     void Continue()
     {
         DuplicateService.DuplicatesHandled = true;
         Navigation.NavigateTo("/");
+    }
+
+    string GetMainColor(MediaMainCategory main) => main switch
+    {
+        MediaMainCategory.Video => "#dc3545",
+        MediaMainCategory.Image => "#28a745",
+        MediaMainCategory.Audio => "#ffc107",
+        MediaMainCategory.Document => "#0d6efd",
+        _ => "#6c757d"
+    };
+
+    string GetThumbnail(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return "_content/placeholder.png";
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif")
+            return $"/api/media?path={Uri.EscapeDataString(path)}";
+
+        if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv")
+        {
+            try
+            {
+                var thumbFileName = VideoThumbnailService.GenerateThumbnail(path);
+                return $"/media_temp/{thumbFileName}";
+            }
+            catch
+            {
+                return "_content/video-icon.png";
+            }
+        }
+
+        if (ext is ".mp3" or ".wav" or ".aac")
+            return "_content/audio-icon.png";
+
+        if (ext is ".pdf" or ".doc" or ".docx" or ".xls" or ".xlsx" or ".txt")
+            return "_content/file-icon.png";
+
+        return "_content/file-icon.png";
+    }
+
+    void Keep(MediaFile file)
+    {
+        file.Keep = true;
+        DuplicateService.DuplicateGroups = RebuildGroups();
+    }
+
+    void Delete(MediaFile file)
+    {
+        file.Keep = false;
+        DuplicateService.AllFiles.Remove(file);
+        DuplicateService.DuplicateGroups = RebuildGroups();
+    }
+
+    void DeleteAllInCategory(MediaMainCategory category)
+    {
+        var toDelete = DuplicateService.AllFiles
+            .Where(f => f.MainCategory == category)
+            .ToList();
+
+        foreach (var file in toDelete)
+        {
+            file.Keep = false;
+            DuplicateService.AllFiles.Remove(file);
+        }
+
+        DuplicateService.DuplicateGroups = RebuildGroups();
+    }
+
+    List<List<MediaFile>> RebuildGroups()
+    {
+        var finder = new DuplicateFinder();
+        var duplicates = finder.FindDuplicates(DuplicateService.AllFiles);
+        return duplicates.Values.ToList();
     }
 }

@@ -81,59 +81,87 @@
     };
 
     async Task ScanFolder()
+{
+    if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
+        return;
+
+    IsScanning = true;
+    DuplicateService.AllFiles.Clear();
+    await InvokeAsync(StateHasChanged);
+
+    try
     {
-        if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
-            return;
+        var scanned = new List<MediaFile>();
 
-        IsScanning = true;
-        DuplicateService.AllFiles.Clear();
-
-        await InvokeAsync(StateHasChanged);
-
-        try
+        foreach (var file in FileScanner.ScanFolder(FolderPath, (i, path) =>
+                 {
+                     CurrentFileIndex = i;
+                     CurrentFileName = Path.GetFileName(path);
+                 }))
         {
-            var scanned = new List<MediaFile>();
+            file.WorkingPath = file.FullPath;
+            file.Keep = false;
+            scanned.Add(file);
+        }
 
-            foreach (var file in FileScanner.ScanFolder(FolderPath, (i, path) =>
-                     {
-                         CurrentFileIndex = i;
-                         CurrentFileName = Path.GetFileName(path);
-                     }))
+        // Hashing and thumbnails
+        foreach (var file in scanned)
+        {
+            // Compute hash
+            try
             {
-                file.WorkingPath = file.FullPath;
-                file.Keep = false;
-                scanned.Add(file);
+                var hash = HashService.ComputeHash(file.FullPath);
+                file.SetHash(hash ?? $"{file.SizeBytes}_{file.FileName}");
+            }
+            catch
+            {
+                file.SetHash($"{file.SizeBytes}_{file.FileName}");
             }
 
-            // Hashing (fallback-safe)
-            foreach (var file in scanned)
+            // Generate thumbnail
+            var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
+            if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv")
             {
                 try
                 {
-                    var hash = HashService.ComputeHash(file.FullPath);
-                    file.SetHash(hash ?? $"{file.SizeBytes}_{file.FileName}");
+                    var thumbFileName = VideoThumbnailService.GenerateThumbnail(file.FullPath);
+                    file.ThumbnailPath = $"/media_temp/{thumbFileName}";
                 }
                 catch
                 {
-                    file.SetHash($"{file.SizeBytes}_{file.FileName}");
+                    file.ThumbnailPath = "_content/video-icon.png";
                 }
             }
-
-            var finder = new DuplicateFinder();
-            var duplicates = finder.FindDuplicates(scanned);
-
-            DuplicateService.AllFiles = scanned;
-            DuplicateService.DuplicateGroups = duplicates.Values.ToList();
-            DuplicateService.DuplicatesHandled = false;
-
-            DuplicateService.NotifyStateChanged();
+            else if (ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif")
+            {
+                file.ThumbnailPath = $"/api/media?path={Uri.EscapeDataString(file.FullPath)}";
+            }
+            else if (ext is ".mp3" or ".wav" or ".aac")
+            {
+                file.ThumbnailPath = "_content/audio-icon.png";
+            }
+            else
+            {
+                file.ThumbnailPath = "_content/file-icon.png";
+            }
         }
-        finally
-        {
-            IsScanning = false;
-            await InvokeAsync(StateHasChanged);
-        }
+
+        // Detect duplicates
+        var finder = new DuplicateFinder();
+        var duplicates = finder.FindDuplicates(scanned);
+
+        DuplicateService.AllFiles = scanned;
+        DuplicateService.DuplicateGroups = duplicates.Values.ToList();
+        DuplicateService.DuplicatesHandled = false;
+
+        DuplicateService.NotifyStateChanged();
     }
+    finally
+    {
+        IsScanning = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}
 
     int GetFileCount(MediaMainCategory cat) =>
         DuplicateService.AllFiles.Count(f => f.MainCategory == cat);

@@ -4,6 +4,7 @@
 @using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
+@inject VideoThumbnailService VideoThumbnailService
 
 <div class="container mt-4">
     <a class="btn btn-secondary mb-3" href="/">← Back to Home</a>
@@ -30,10 +31,12 @@
             @foreach (var file in SubGroups[ExpandedSubKey])
             {
                 <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
-                    <img src="@GetThumbnail(file.WorkingPath)" style="width:100%; height:80px; object-fit:cover;" />
+                    <img src="@file.ThumbnailPath"
+                         alt="@file.FileName"
+                         style="width:100%; height:80px; object-fit:cover;" />
                     <div style="font-size:0.75em;">@Path.GetFileName(file.FullPath)</div>
 
-                    <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file)">Keep</button>
+                    <button class="btn btn-sm btn-success mt-1 me-1" @onclick="() => Keep(file)">Keep</button>
                     <button class="btn btn-sm btn-danger mt-1" @onclick="() => Delete(file)">Delete</button>
                 </div>
             }
@@ -62,11 +65,9 @@
 </div>
 
 @code {
-    [Parameter]
-    public string CategoryString { get; set; } = "image";
+    [Parameter] public string CategoryString { get; set; } = "image";
 
     private MediaMainCategory CurrentCategory { get; set; }
-
     Dictionary<string, List<MediaFile>> SubGroups = new();
     string? ExpandedSubKey;
 
@@ -100,7 +101,6 @@
             .Where(f => f.MainCategory == CurrentCategory)
             .ToList();
 
-        // Images & Videos → group by Year
         if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
         {
             SubGroups = files
@@ -109,7 +109,6 @@
         }
         else
         {
-            // Audio & Documents → group by extension
             SubGroups = files
                 .GroupBy(f => Path.GetExtension(f.FileName).ToLower())
                 .ToDictionary(g => g.Key, g => g.ToList());
@@ -124,7 +123,6 @@
     void Keep(MediaFile file)
     {
         file.Keep = true;
-
         if (ExpandedSubKey != null)
             SubGroups[ExpandedSubKey].Remove(file);
     }
@@ -132,7 +130,6 @@
     void Delete(MediaFile file)
     {
         file.Keep = false;
-
         if (ExpandedSubKey != null)
             SubGroups[ExpandedSubKey].Remove(file);
     }
@@ -140,7 +137,6 @@
     void GoNext()
     {
         var index = Array.IndexOf(CategoryOrder, CurrentCategory);
-
         if (index < CategoryOrder.Length - 1)
         {
             var next = CategoryOrder[index + 1];
@@ -158,9 +154,7 @@
         var root = Path.Combine(DuplicateService.FolderPath, "Structured");
 
         foreach (var cat in CategoryOrder)
-        {
             Directory.CreateDirectory(Path.Combine(root, cat + "s"));
-        }
 
         foreach (var file in DuplicateService.AllFiles.Where(f => f.Keep))
         {
@@ -202,7 +196,17 @@
             return $"/api/media?path={Uri.EscapeDataString(path)}";
 
         if (ext is ".mp4" or ".mov" or ".avi" or ".wmv" or ".mkv")
-            return "_content/video-icon.png";
+        {
+            try
+            {
+                var thumbFileName = VideoThumbnailService.GenerateThumbnail(path);
+                return $"/media_temp/{thumbFileName}";
+            }
+            catch
+            {
+                return "_content/video-icon.png";
+            }
+        }
 
         if (ext is ".mp3" or ".wav" or ".aac")
             return "_content/audio-icon.png";
