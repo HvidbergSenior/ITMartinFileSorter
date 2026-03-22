@@ -1,14 +1,17 @@
 ﻿@page "/duplicates"
 @using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Application.UseCases
+@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 
 <div class="container mt-4">
     <h4>Handle Duplicates</h4>
+
     <button class="btn btn-danger mb-3" @onclick="DeleteAllDuplicatesGlobally">
-        Delete All Duplicates (Keep One Per Group)
+        Delete All Duplicates (Keep Newest)
     </button>
+
     @if (!HasDuplicates)
     {
         <div class="alert alert-success">
@@ -30,62 +33,49 @@
                 continue;
 
             <div class="mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 style="color:@GetMainColor(category)">@category</h5>
-                </div>
+                <h5 style="color:@GetMainColor(category)">@category</h5>
 
                 @foreach (var group in groups)
                 {
-                    <div class="d-flex gap-2 flex-wrap mb-3 align-items-center">
+                    <div class="d-flex gap-2 flex-wrap mb-2">
                         @foreach (var file in group)
                         {
-                            <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
-                                @if (file.MainCategory == MediaMainCategory.Image)
-                                {
-                                    <img src="@file.ThumbnailPath"
-                                         alt="@file.FileName"
-                                         style="width:100%; height:80px; object-fit:cover;" />
-                                }
-                                else if (file.MainCategory == MediaMainCategory.Video)
-                                {
-                                    <div style="width:100%; height:80px; background:#000; color:#fff; display:flex; align-items:center; justify-content:center;">
-                                        VIDEO
-                                    </div>
-                                }
-                                else if (file.MainCategory == MediaMainCategory.Audio)
-                                {
-                                    <div style="width:100%; height:80px; background:#f0f0f0; display:flex; align-items:center; justify-content:center;">
-                                        AUDIO
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div style="width:100%; height:80px; background:#e0e0e0; display:flex; align-items:center; justify-content:center;">
-                                        DOC
-                                    </div>
-                                }
+                            <div class="file-card text-center p-2"
+                                 style="width:120px; border:1px solid #ccc;
+                                        @(file.Status == MediaFileStatus.ToDelete ? "opacity:0.5;" : "")">
 
-                                <div style="font-size:0.75em;">@Path.GetFileName(file.FullPath)</div>
+                                <div style="height:60px; display:flex; align-items:center; justify-content:center;">
+                                    @file.SubCategory
+                                </div>
+
+                                <div style="font-size:0.75em;">@file.FileName</div>
+
+                                @if (file.Status == MediaFileStatus.ToDelete)
+                                {
+                                    <div style="color:red; font-size:0.7em;">Marked Delete</div>
+                                }
                             </div>
                         }
                     </div>
 
-                    <!-- SINGLE BUTTON: Delete all but one -->
-                    <button class="btn btn-sm btn-danger mb-3" @onclick="() => DeleteAllButOne(group)">
-                        Delete All But One in This Duplicate Group
+                    <button class="btn btn-sm btn-danger mb-3"
+                            @onclick="() => DeleteAllButOne(group)">
+                        Delete All But One
                     </button>
                 }
             </div>
         }
 
-        <button class="btn btn-success mt-3" @onclick="Continue" disabled="@(!AllGroupsHandled)">
+        <button class="btn btn-success mt-3"
+                @onclick="Continue"
+                disabled="@(!AllGroupsHandled)">
             Continue
         </button>
 
         @if (!AllGroupsHandled)
         {
             <div class="text-danger mt-2">
-                ⚠ You must handle all duplicate groups before continuing.
+                ⚠ You must handle all duplicate groups
             </div>
         }
     }
@@ -100,10 +90,16 @@
         MediaMainCategory.Document
     };
 
-    bool HasDuplicates => DuplicateService.AllFiles.Any(f => !f.Keep);
+    bool HasDuplicates =>
+        DuplicateService.AllFiles
+            .GroupBy(f => f.Hash)
+            .Any(g => g.Count() > 1);
 
     bool AllGroupsHandled =>
-        DuplicateService.DuplicateGroups.All(g => g.Count == 1 || g.Any(f => f.Keep));
+        DuplicateService.AllFiles
+            .GroupBy(f => f.Hash)
+            .Where(g => g.Count() > 1)
+            .All(g => g.Count(f => f.Status == MediaFileStatus.ToDelete) == g.Count() - 1);
 
     string GetMainColor(MediaMainCategory main) => main switch
     {
@@ -116,48 +112,48 @@
 
     void DeleteAllButOne(IGrouping<string, MediaFile> group)
     {
-        bool first = true;
-        foreach (var file in group.ToList())
+        var newest = group.OrderByDescending(f => f.CreatedAt).First();
+
+        foreach (var file in group)
         {
-            if (first)
+            if (file != newest)
             {
-                file.Keep = true; // keep first file
-                first = false;
+                file.Status = MediaFileStatus.ToDelete;
+                Console.WriteLine($"[DEBUG] Duplicate -> DELETE: {file.FileName}");
             }
             else
             {
-                file.Keep = false;
-                DuplicateService.AllFiles.Remove(file);
+                Console.WriteLine($"[DEBUG] Duplicate -> KEEP (Initial): {file.FileName}");
             }
         }
 
-        DuplicateService.DuplicateGroups = RebuildGroups();
+        StateHasChanged();
+    }
+
+    void DeleteAllDuplicatesGlobally()
+    {
+        foreach (var group in DuplicateService.AllFiles
+                     .GroupBy(f => f.Hash)
+                     .Where(g => g.Count() > 1))
+        {
+            var newest = group.OrderByDescending(f => f.CreatedAt).First();
+
+            foreach (var file in group)
+            {
+                if (file != newest)
+                {
+                    file.Status = MediaFileStatus.ToDelete;
+                    Console.WriteLine($"[DEBUG] Global duplicate -> DELETE: {file.FileName}");
+                }
+            }
+        }
+
+        StateHasChanged();
     }
 
     void Continue()
     {
         DuplicateService.DuplicatesHandled = true;
         Navigation.NavigateTo("/");
-    }
-
-    List<List<MediaFile>> RebuildGroups()
-    {
-        var finder = new DuplicateFinder();
-        return finder.FindDuplicates(DuplicateService.AllFiles).Values.ToList();
-    }
-    void DeleteAllDuplicatesGlobally()
-    {
-        foreach (var group in DuplicateService.DuplicateGroups)
-        {
-            bool first = true;
-
-            foreach (var file in group)
-            {
-                file.Keep = first;
-                first = false;
-            }
-        }
-
-        DuplicateService.DuplicateGroups = RebuildGroups();
     }
 }

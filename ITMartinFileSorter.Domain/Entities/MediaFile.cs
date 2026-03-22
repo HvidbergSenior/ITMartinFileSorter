@@ -15,7 +15,7 @@ public class MediaFile
     public MediaType Type { get; }
 
     public string? WorkingPath { get; set; }  // points to the temporary copy
-    public string? ThumbnailPath { get; set; } // NEW: stores generated video thumbnail filename
+    public string? ThumbnailPath { get; set; }
 
     // Categorization
     public MediaMainCategory MainCategory { get; set; }
@@ -35,9 +35,7 @@ public class MediaFile
     public int? Height { get; private set; }
 
     // Tracks whether user wants to keep the file in the workflow
-    public bool Keep { get; set; } = false;
-    
-
+    public MediaFileStatus Status { get; set; } = MediaFileStatus.Initial;
     public MediaFile(string fullPath, DateTime createdAt, MediaType type, long sizeBytes)
     {
         FullPath = fullPath;
@@ -83,4 +81,6 @@ public class MediaFile
         Width = width;
         Height = height;
     }
+    public override string ToString()
+        => $"FileName={FileName}, FullPath={FullPath}, DynamicFolder={DynamicFolder}, Status={Status}";
 }

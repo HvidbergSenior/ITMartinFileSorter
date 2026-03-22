@@ -1,23 +1,23 @@
 ﻿@page "/category-step/{CategoryString}"
 @using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
-@inject VideoThumbnailService VideoThumbnailService
 
 <div class="container mt-4">
-    <a class="btn btn-secondary mb-3" href="/">← Back to Home</a>
+    <a class="btn btn-secondary mb-3" href="/">← Back</a>
     <h4>Step: @CurrentCategory</h4>
 
-    <div class="mb-2">
-        Step @(Array.IndexOf(CategoryOrder, CurrentCategory) + 1) / @CategoryOrder.Length
-    </div>
+    @{
+        var remaining = DuplicateService.AllFiles
+            .Count(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial);
 
-    @if (SubGroups.Any())
-    {
-        <div class="alert alert-info">
-            Remaining: @SubGroups.Sum(g => g.Value.Count) files
-        </div>
+        Console.WriteLine($"[DEBUG] Remaining ({CurrentCategory}): {remaining}");
     }
+
+    <div class="alert alert-info">
+        Remaining: @remaining files
+    </div>
 
     @if (SubGroups.Any())
     {
@@ -25,11 +25,12 @@
             @foreach (var key in SubGroups.Keys)
             {
                 <div class="category-box text-center p-3"
-                     style="cursor:pointer; background-color:@GetColor(CurrentCategory); border-radius:5px; width:150px;"
+                     style="cursor:pointer; background:#0d6efd; border-radius:5px; width:150px;"
                      @onclick="() => ToggleSubGroup(key)">
+
                     <strong>@key</strong><br />
-                    @SubGroups[key].Count files<br />
-                    @FormatSize(SubGroups[key].Sum(f => f.SizeBytes))
+                    @SubGroups[key].Count files
+
                     <div class="mt-2">
                         <button class="btn btn-sm btn-success me-1"
                                 @onclick:stopPropagation
@@ -60,130 +61,125 @@
             @foreach (var file in SubGroups[ExpandedSubKey])
             {
                 <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
-                    @if (file.MainCategory == MediaMainCategory.Image || file.MainCategory == MediaMainCategory.Video)
-                    {
-                        <img src="@file.ThumbnailPath"
-                             style="width:100%; height:80px; object-fit:cover;" />
-                    }
-                    else
-                    {
-                        <div style="height:80px; display:flex; align-items:center; justify-content:center;">
-                            @file.SubCategory
-                        </div>
-                    }
-                    <div style="font-size:0.75em;">@Path.GetFileName(file.FullPath)</div>
+                    <div style="height:60px; display:flex; align-items:center; justify-content:center;">
+                        @file.SubCategory
+                    </div>
 
-                    <button class="btn btn-sm btn-success mt-1 me-1" @onclick="() => Keep(file)">Keep</button>
-                    <button class="btn btn-sm btn-danger mt-1" @onclick="() => Delete(file)">Delete</button>
+                    <div style="font-size:0.75em;">@file.FileName</div>
+
+                    <button class="btn btn-sm btn-success mt-1 me-1"
+                            @onclick="() => Keep(file)">
+                        Keep
+                    </button>
+
+                    <button class="btn btn-sm btn-danger mt-1"
+                            @onclick="() => Delete(file)">
+                        Delete
+                    </button>
                 </div>
             }
         </div>
     }
 
-    <div class="mt-3">
-        <button class="btn btn-primary" @onclick="GoNext" disabled="@(CanMoveNext == false)">
-            Next Category →
-        </button>
+    <button class="btn btn-primary"
+            @onclick="GoNext"
+            disabled="@(CanMoveNext == false)">
+        Next →
+    </button>
 
-        @if (!CanMoveNext && SubGroups.Any())
-        {
-            <div class="alert alert-warning mt-2">
-                You must handle all files in this category before continuing.
-            </div>
-        }
-    </div>
+    @if (!CanMoveNext)
+    {
+        <div class="alert alert-warning mt-2">
+            Handle all files before continuing.
+        </div>
+    }
 </div>
 
 @code {
     [Parameter] public string CategoryString { get; set; } = "image";
-    private MediaMainCategory CurrentCategory { get; set; }
-    Dictionary<string, List<MediaFile>> SubGroups = new();
-    string? ExpandedSubKey;
 
-    bool CanMoveNext => !DuplicateService.AllFiles
-            .Any(f => f.MainCategory == CurrentCategory && !f.Keep);
+    private MediaMainCategory CurrentCategory;
+    private Dictionary<string, List<MediaFile>> SubGroups = new();
+    private string? ExpandedSubKey;
 
-    private readonly MediaMainCategory[] CategoryOrder = new[]
-    {
-        MediaMainCategory.Image,
-        MediaMainCategory.Video,
-        MediaMainCategory.Audio,
-        MediaMainCategory.Document
-    };
+    bool CanMoveNext =>
+        !DuplicateService.AllFiles
+            .Any(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial);
 
     protected override void OnInitialized()
     {
-        CurrentCategory = CategoryString?.ToLowerInvariant() switch
+        CurrentCategory = CategoryString.ToLower() switch
         {
-            "image" or "images" => MediaMainCategory.Image,
-            "video" or "videos" => MediaMainCategory.Video,
-            "audio" or "audios" => MediaMainCategory.Audio,
-            "document" or "documents" => MediaMainCategory.Document,
+            "image" => MediaMainCategory.Image,
+            "video" => MediaMainCategory.Video,
+            "audio" => MediaMainCategory.Audio,
+            "document" => MediaMainCategory.Document,
             _ => MediaMainCategory.Image
         };
 
         LoadSubGroups();
 
-        // Auto-skip empty category
-        if (!SubGroups.Any())
+        Console.WriteLine($"[DEBUG] Initialized category: {CurrentCategory}");
+
+        foreach (var f in DuplicateService.AllFiles.Where(f => f.MainCategory == CurrentCategory))
         {
-            DuplicateService.CompletedCategories.Add(CurrentCategory);
-            GoNext();
+            Console.WriteLine($"    {f.FileName} -> Status={f.Status}, Sub={f.SubCategory}");
         }
     }
 
     void LoadSubGroups()
     {
         var files = DuplicateService.AllFiles
-            .Where(f => f.MainCategory == CurrentCategory && !f.Keep)
+            .Where(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial)
             .ToList();
 
-        if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
-        {
-            // Group by Year-Month
-            SubGroups = files
-                .GroupBy(f => $"{f.Year}-{f.Month:D2}")
-                .OrderByDescending(g => g.Key)
-                .ToDictionary(g => g.Key, g => g.ToList());
-        }
-        else
-        {
-            // Group by SubCategory-Year
-            SubGroups = files
-                .GroupBy(f => $"{f.SubCategory} - {f.Year}")
-                .OrderBy(g => g.Key)
-                .ToDictionary(g => g.Key, g => g.ToList());
-        }
+        SubGroups = files
+            .GroupBy(f => $"{f.SubCategory} - {f.Year}")
+            .OrderBy(g => g.Key)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        Console.WriteLine($"[DEBUG] SubGroups created: {SubGroups.Count}");
+        foreach (var g in SubGroups)
+            Console.WriteLine($"    {g.Key}: {g.Value.Count} files");
     }
 
-    void ToggleSubGroup(string key) => ExpandedSubKey = ExpandedSubKey == key ? null : key;
+    void ToggleSubGroup(string key)
+    {
+        ExpandedSubKey = ExpandedSubKey == key ? null : key;
+    }
 
     void Keep(MediaFile file)
     {
-        file.Keep = true;
-        RemoveFromSubGroups(file);
+        file.Status = MediaFileStatus.ToKeep;
+        Console.WriteLine($"[DEBUG] Keep: {file.FileName}");
+        Refresh();
     }
 
     void Delete(MediaFile file)
     {
-        file.Keep = false;
-        RemoveFromSubGroups(file);
+        file.Status = MediaFileStatus.ToDelete;
+        Console.WriteLine($"[DEBUG] Delete: {file.FileName}");
+        Refresh();
     }
 
     void KeepAll(string key)
     {
         foreach (var f in SubGroups[key])
-            f.Keep = true;
-
-        SubGroups[key].Clear();
+        {
+            f.Status = MediaFileStatus.ToKeep;
+            Console.WriteLine($"[DEBUG] KeepAll: {f.FileName}");
+        }
+        Refresh();
     }
 
     void DeleteAll(string key)
     {
         foreach (var f in SubGroups[key])
-            f.Keep = false;
-
-        SubGroups[key].Clear();
+        {
+            f.Status = MediaFileStatus.ToDelete;
+            Console.WriteLine($"[DEBUG] DeleteAll: {f.FileName}");
+        }
+        Refresh();
     }
 
     void DeleteAllButOne(string key)
@@ -191,65 +187,46 @@
         var list = SubGroups[key];
         if (!list.Any()) return;
 
-        var keepFile = list.First();
+        var newest = list.OrderByDescending(f => f.CreatedAt).First();
+
         foreach (var f in list)
-            f.Keep = f == keepFile;
-
-        SubGroups[key].Clear();
-    }
-
-    void RemoveFromSubGroups(MediaFile file)
-    {
-        foreach (var group in SubGroups.Values)
         {
-            if (group.Contains(file))
-            {
-                group.Remove(file);
-                break;
-            }
+            f.Status = f == newest
+                ? MediaFileStatus.ToKeep
+                : MediaFileStatus.ToDelete;
+
+            Console.WriteLine($"[DEBUG] DeleteAllButOne: {f.FileName} -> {f.Status}");
         }
+
+        Refresh();
     }
 
-    bool _navigating = false;
+    void Refresh()
+    {
+        LoadSubGroups();
+        InvokeAsync(StateHasChanged);
+    }
 
     void GoNext()
     {
-        if (_navigating) return;
-        _navigating = true;
-
-        DuplicateService.CompletedCategories.Add(CurrentCategory);
-
-        var index = Array.IndexOf(CategoryOrder, CurrentCategory);
-        if (index < CategoryOrder.Length - 1)
+        var order = new[]
         {
-            var next = CategoryOrder[index + 1];
+            MediaMainCategory.Image,
+            MediaMainCategory.Video,
+            MediaMainCategory.Audio,
+            MediaMainCategory.Document
+        };
+
+        var index = Array.IndexOf(order, CurrentCategory);
+
+        if (index < order.Length - 1)
+        {
+            var next = order[index + 1].ToString().ToLower();
             Navigation.NavigateTo($"/category-step/{next}");
         }
         else
         {
             Navigation.NavigateTo("/");
         }
-    }
-
-    string GetColor(MediaMainCategory cat) => cat switch
-    {
-        MediaMainCategory.Video => "#dc3545",
-        MediaMainCategory.Image => "#28a745",
-        MediaMainCategory.Audio => "#ffc107",
-        MediaMainCategory.Document => "#0d6efd",
-        _ => "#6c757d"
-    };
-
-    string FormatSize(long bytes)
-    {
-        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-        double len = bytes;
-        int order = 0;
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len /= 1024;
-        }
-        return $"{len:0.#} {sizes[order]}";
     }
 }
