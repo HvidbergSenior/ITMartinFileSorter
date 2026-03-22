@@ -1,13 +1,14 @@
 ﻿@page "/duplicates"
 @using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Application.UseCases
-@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 
 <div class="container mt-4">
     <h4>Handle Duplicates</h4>
-
+    <button class="btn btn-danger mb-3" @onclick="DeleteAllDuplicatesGlobally">
+        Delete All Duplicates (Keep One Per Group)
+    </button>
     @if (!HasDuplicates)
     {
         <div class="alert alert-success">
@@ -143,5 +144,20 @@
     {
         var finder = new DuplicateFinder();
         return finder.FindDuplicates(DuplicateService.AllFiles).Values.ToList();
+    }
+    void DeleteAllDuplicatesGlobally()
+    {
+        foreach (var group in DuplicateService.DuplicateGroups)
+        {
+            bool first = true;
+
+            foreach (var file in group)
+            {
+                file.Keep = first;
+                first = false;
+            }
+        }
+
+        DuplicateService.DuplicateGroups = RebuildGroups();
     }
 }

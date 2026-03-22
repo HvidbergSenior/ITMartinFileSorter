@@ -1,4 +1,5 @@
 ﻿using ITMartinFileSorter.Domain.Entities;
+using ITMartinFileSorter.Domain.Enums;
 
 namespace ITMartinFileSorter.Application.Services;
 
@@ -17,6 +18,6 @@ public class DuplicateService
     
     // Event to trigger UI updates
     public event Action? OnChange;
-
+    public HashSet<MediaMainCategory> CompletedCategories { get; set; } = new();
     public void NotifyStateChanged() => OnChange?.Invoke();
 }
