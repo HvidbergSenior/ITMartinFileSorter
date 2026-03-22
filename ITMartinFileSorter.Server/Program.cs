@@ -11,6 +11,11 @@ builder.Services.AddServerSideBlazor();
 builder.Services.AddScoped<IFileScanner, FileScanner>(); // your scanner
 builder.Services.AddScoped<IHashService, Sha256HashService>();  // your hash service
 builder.Services.AddScoped<MediaCategorizer>();
+builder.Services.AddScoped<AudioCategorizer>();
+builder.Services.AddScoped<ImageCategorizer>();
+builder.Services.AddScoped<VideoCategorizer>();
+builder.Services.AddScoped<DocumentCategorizer>();
+
 builder.Services.AddSingleton<DuplicateService>();
 builder.Services.AddSingleton<StepService>();
 builder.Services.AddSingleton(new VideoThumbnailService(

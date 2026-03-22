@@ -68,63 +68,6 @@ public sealed class FileScanner : IFileScanner
                 sizeBytes: info.Length
             );
 
-            var name = Path.GetFileName(file).ToLowerInvariant();
-            var folder = Path.GetDirectoryName(file)?.ToLowerInvariant() ?? "";
-
-            bool isDownload = folder.Contains("download");
-            bool isWhatsapp = folder.Contains("whatsapp");
-
-            if (type == MediaType.Image)
-            {
-                if (name.Contains("screenshot"))
-                    mediaFile.SubCategory = MediaSubCategory.Screenshot;
-                else if (extension is ".heic" or ".heif")
-                    mediaFile.SubCategory = MediaSubCategory.PhonePhoto;
-                else if (name.StartsWith("img_") || name.StartsWith("dsc_"))
-                    mediaFile.SubCategory = MediaSubCategory.Camera;
-                else if (isWhatsapp)
-                    mediaFile.SubCategory = MediaSubCategory.WhatsApp;
-                else if (isDownload)
-                    mediaFile.SubCategory = MediaSubCategory.Download;
-                else
-                    mediaFile.SubCategory = MediaSubCategory.OtherImage;
-            }
-            else if (type == MediaType.Video)
-            {
-                if (name.Contains("screen"))
-                    mediaFile.SubCategory = MediaSubCategory.ScreenRecording;
-                else if (name.StartsWith("img_"))
-                    mediaFile.SubCategory = MediaSubCategory.PhoneVideo;
-                else if (isWhatsapp)
-                    mediaFile.SubCategory = MediaSubCategory.WhatsApp;
-                else if (isDownload)
-                    mediaFile.SubCategory = MediaSubCategory.Download;
-                else
-                    mediaFile.SubCategory = MediaSubCategory.OtherVideo;
-            }
-            else if (type == MediaType.Audio)
-            {
-                if (extension is ".mp3" or ".flac")
-                    mediaFile.SubCategory = MediaSubCategory.Music;
-                else if (extension is ".wav" or ".aac")
-                    mediaFile.SubCategory = MediaSubCategory.VoiceMemo;
-                else
-                    mediaFile.SubCategory = MediaSubCategory.UnknownAudio;
-            }
-            else if (type == MediaType.Document)
-            {
-                mediaFile.SubCategory = extension switch
-                {
-                    ".pdf" => MediaSubCategory.Pdf,
-                    ".doc" or ".docx" => MediaSubCategory.Word,
-                    ".xls" or ".xlsx" => MediaSubCategory.Excel,
-                    ".txt" => MediaSubCategory.Text,
-                    ".ppt" or ".pptx" => MediaSubCategory.Presentation,
-                    ".csv" => MediaSubCategory.Csv,
-                    _ => MediaSubCategory.UnknownDocument
-                };
-            }
-
             yield return mediaFile;
         }
     }
