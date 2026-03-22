@@ -6,8 +6,8 @@
 
 <div class="container mt-4">
     <a class="btn btn-secondary mb-3" href="/">← Back to Home</a>
-
     <h4>Step: @CurrentCategory</h4>
+
     <div class="mb-2">
         Step @(Array.IndexOf(CategoryOrder, CurrentCategory) + 1) / @CategoryOrder.Length
     </div>
@@ -17,12 +17,15 @@
         <div class="alert alert-info">
             Remaining: @SubGroups.Sum(g => g.Value.Count) files
         </div>
+    }
 
-        <!-- SUBCATEGORY ROW -->
-        <div class="sub-category-row mb-3">
+    @if (SubGroups.Any())
+    {
+        <div class="d-flex gap-3 flex-wrap mb-3">
             @foreach (var key in SubGroups.Keys)
             {
-                <div class="sub-category-box @GetCategoryClass(CurrentCategory)"
+                <div class="category-box text-center p-3"
+                     style="cursor:pointer; background-color:@GetColor(CurrentCategory); border-radius:5px; width:150px;"
                      @onclick="() => ToggleSubGroup(key)">
                     <strong>@key</strong><br />
                     @SubGroups[key].Count files<br />
@@ -33,10 +36,17 @@
                                 @onclick="() => KeepAll(key)">
                             Keep All
                         </button>
-                        <button class="btn btn-sm btn-danger"
+
+                        <button class="btn btn-sm btn-danger me-1"
                                 @onclick:stopPropagation
                                 @onclick="() => DeleteAll(key)">
                             Delete All
+                        </button>
+
+                        <button class="btn btn-sm btn-warning"
+                                @onclick:stopPropagation
+                                @onclick="() => DeleteAllButOne(key)">
+                            Delete All But One
                         </button>
                     </div>
                 </div>
@@ -44,7 +54,6 @@
         </div>
     }
 
-    <!-- FILES IN EXPANDED SUBCATEGORY -->
     @if (ExpandedSubKey != null && SubGroups.ContainsKey(ExpandedSubKey))
     {
         <div class="d-flex gap-2 flex-wrap mb-3">
@@ -71,7 +80,6 @@
         </div>
     }
 
-    <!-- NAVIGATION -->
     <div class="mt-3">
         <button class="btn btn-primary" @onclick="GoNext" disabled="@(CanMoveNext == false)">
             Next Category →
@@ -116,7 +124,7 @@
 
         LoadSubGroups();
 
-        // Auto skip empty category
+        // Auto-skip empty category
         if (!SubGroups.Any())
         {
             DuplicateService.CompletedCategories.Add(CurrentCategory);
@@ -132,6 +140,7 @@
 
         if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
         {
+            // Group by Year-Month
             SubGroups = files
                 .GroupBy(f => $"{f.Year}-{f.Month:D2}")
                 .OrderByDescending(g => g.Key)
@@ -139,6 +148,7 @@
         }
         else
         {
+            // Group by SubCategory-Year
             SubGroups = files
                 .GroupBy(f => $"{f.SubCategory} - {f.Year}")
                 .OrderBy(g => g.Key)
@@ -151,13 +161,13 @@
     void Keep(MediaFile file)
     {
         file.Keep = true;
-        LoadSubGroups();
+        RemoveFromSubGroups(file);
     }
 
     void Delete(MediaFile file)
     {
         file.Keep = false;
-        LoadSubGroups();
+        RemoveFromSubGroups(file);
     }
 
     void KeepAll(string key)
@@ -165,7 +175,7 @@
         foreach (var f in SubGroups[key])
             f.Keep = true;
 
-        LoadSubGroups();
+        SubGroups[key].Clear();
     }
 
     void DeleteAll(string key)
@@ -173,36 +183,66 @@
         foreach (var f in SubGroups[key])
             f.Keep = false;
 
-        LoadSubGroups();
+        SubGroups[key].Clear();
+    }
+
+    void DeleteAllButOne(string key)
+    {
+        var list = SubGroups[key];
+        if (!list.Any()) return;
+
+        var keepFile = list.First();
+        foreach (var f in list)
+            f.Keep = f == keepFile;
+
+        SubGroups[key].Clear();
+    }
+
+    void RemoveFromSubGroups(MediaFile file)
+    {
+        foreach (var group in SubGroups.Values)
+        {
+            if (group.Contains(file))
+            {
+                group.Remove(file);
+                break;
+            }
+        }
     }
 
     bool _navigating = false;
+
     void GoNext()
     {
         if (_navigating) return;
         _navigating = true;
 
         DuplicateService.CompletedCategories.Add(CurrentCategory);
-        var index = Array.IndexOf(CategoryOrder, CurrentCategory);
 
+        var index = Array.IndexOf(CategoryOrder, CurrentCategory);
         if (index < CategoryOrder.Length - 1)
-            Navigation.NavigateTo($"/category-step/{CategoryOrder[index + 1]}");
+        {
+            var next = CategoryOrder[index + 1];
+            Navigation.NavigateTo($"/category-step/{next}");
+        }
         else
+        {
             Navigation.NavigateTo("/");
+        }
     }
 
-    string GetCategoryClass(MediaMainCategory cat) => cat switch
+    string GetColor(MediaMainCategory cat) => cat switch
     {
-        MediaMainCategory.Image => "category-image",
-        MediaMainCategory.Video => "category-video",
-        MediaMainCategory.Audio => "category-audio",
-        MediaMainCategory.Document => "category-document",
-        _ => ""
+        MediaMainCategory.Video => "#dc3545",
+        MediaMainCategory.Image => "#28a745",
+        MediaMainCategory.Audio => "#ffc107",
+        MediaMainCategory.Document => "#0d6efd",
+        _ => "#6c757d"
     };
 
     string FormatSize(long bytes)
     {
-        string[] sizes = { "B", "KB", "MB", "GB" };
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
         double len = bytes;
         int order = 0;
         while (len >= 1024 && order < sizes.Length - 1)
