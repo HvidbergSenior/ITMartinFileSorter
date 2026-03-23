@@ -73,3 +73,5 @@ desktop.ini
 ############################
 *.tmp
 *.temp
+
+ITMartinFileSorter.Server/Ffmpeg/
