@@ -10,7 +10,6 @@
 @inject MediaCategorizer MediaCategorizer
 
 <div class="container mt-4">
-
     @if (!DuplicateService.AllFiles.Any())
     {
         <div class="folder-input d-flex mb-3">
@@ -45,16 +44,12 @@
         else
         {
             <h4>File Summary</h4>
-
-            <div class="main-category-row mt-3">
+            <div class="main-category-row mt-3 d-flex gap-3">
                 @foreach (var cat in CategoryOrder)
                 {
-                    var count = GetFileCount(cat);
-                    if (count == 0) continue;
-
                     <div class="main-category-box @GetCategoryClass(cat)" @onclick="() => GoToCategory(cat)">
                         <strong>@cat</strong><br />
-                        @count files<br />
+                        @GetFileCount(cat) files<br />
                         @FormatSize(GetCategorySize(cat))
                     </div>
                 }
@@ -109,44 +104,39 @@
 
             await Task.Run(() =>
             {
-                Parallel.ForEach(files, new ParallelOptions
+                Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, file =>
+                {
+                    file.WorkingPath = file.FullPath;
+                    file.Status = MediaFileStatus.Initial;
+
+                    try
                     {
-                        MaxDegreeOfParallelism = Environment.ProcessorCount
-                    },
-                    file =>
+                        var hash = HashService.ComputeHash(file.FullPath);
+                        file.SetHash(hash ?? $"{file.SizeBytes}");
+                    }
+                    catch
                     {
-                        file.WorkingPath = file.FullPath;
-                        file.Status = MediaFileStatus.Initial;
+                        file.SetHash($"{file.SizeBytes}");
+                    }
 
-                        // Hash
-                        try
-                        {
-                            var hash = HashService.ComputeHash(file.FullPath);
-                            file.SetHash(hash ?? $"{file.SizeBytes}_{file.FileName}");
-                        }
-                        catch
-                        {
-                            file.SetHash($"{file.SizeBytes}_{file.FileName}");
-                        }
+                    MediaCategorizer.Categorize(file);
 
-                        // Categorize
-                        MediaCategorizer.Categorize(file);
+                    var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
+                    var docExts = new[] { ".pdf", ".docx", ".doc", ".txt" };
+                    file.ThumbnailPath = ext switch
+                    {
+                        var e when e is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif" =>
+                            $"/api/media?path={Uri.EscapeDataString(file.FullPath)}",
+                        var e when docExts.Contains(e) => "_content/document-icon.png",
+                        _ => "_content/file-icon.png"
+                    };
 
-                        // Thumbnail
-                        var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
-                        file.ThumbnailPath = ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif"
-                            ? $"/api/media?path={Uri.EscapeDataString(file.FullPath)}"
-                            : "_content/file-icon.png";
-
-                        Console.WriteLine($"[DEBUG] Categorized {file.FileName} -> {file.MainCategory}/{file.SubCategory}, Status={file.Status}");
-
-                        scanned.Add(file);
-                    });
+                    scanned.Add(file);
+                });
             });
 
             DuplicateService.AllFiles = scanned.ToList();
 
-            // Detect duplicates
             var finder = new DuplicateFinder();
             DuplicateService.DuplicateGroups = finder.FindDuplicates(scanned).Values.ToList();
 
@@ -161,32 +151,21 @@
     }
 
     int GetFileCount(MediaMainCategory cat) =>
-        DuplicateService.AllFiles
-            .Count(f => f.MainCategory == cat && f.Status != MediaFileStatus.ToDelete);
+        DuplicateService.AllFiles.Count(f => f.MainCategory == cat && f.Status != MediaFileStatus.ToDelete);
 
-    int TotalFiles =>
-        DuplicateService.AllFiles.Count(f => f.Status != MediaFileStatus.ToDelete);
+    int TotalFiles => DuplicateService.AllFiles.Count(f => f.Status != MediaFileStatus.ToDelete);
 
-    long TotalSizeBytes =>
-        DuplicateService.AllFiles
-            .Where(f => f.Status != MediaFileStatus.ToDelete)
-            .Sum(f => f.SizeBytes);
+    long TotalSizeBytes => DuplicateService.AllFiles.Where(f => f.Status != MediaFileStatus.ToDelete).Sum(f => f.SizeBytes);
 
     long GetCategorySize(MediaMainCategory cat) =>
-        DuplicateService.AllFiles
-            .Where(f => f.MainCategory == cat && f.Status != MediaFileStatus.ToDelete)
-            .Sum(f => f.SizeBytes);
+        DuplicateService.AllFiles.Where(f => f.MainCategory == cat && f.Status != MediaFileStatus.ToDelete).Sum(f => f.SizeBytes);
 
     string FormatSize(long bytes)
     {
         string[] sizes = { "B", "KB", "MB", "GB", "TB" };
         double len = bytes;
         int order = 0;
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len /= 1024;
-        }
+        while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024; }
         return $"{len:0.#} {sizes[order]}";
     }
 
@@ -202,7 +181,6 @@
             MediaMainCategory.Document => "document",
             _ => "image"
         };
-
         Navigation.NavigateTo($"/category-step/{catStr}");
     }
 
