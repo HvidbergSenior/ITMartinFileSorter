@@ -1,4 +1,5 @@
 ﻿@page "/category-step/{CategoryString}"
+@using System.Linq
 @using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
@@ -8,74 +9,86 @@
     <a class="btn btn-secondary mb-3" href="/">← Back</a>
     <h4>Step: @CurrentCategory</h4>
 
+    @{
+        var remaining = DuplicateService.AllFiles
+            .Count(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial);
+    }
+
     <div class="alert alert-info">
-        Remaining: @RemainingFiles files
+        Remaining: @remaining files
     </div>
 
-    @if (SubGroups.Any())
+    @if (!FilesInCategory.Any())
     {
-        <div class="d-flex gap-3 flex-wrap mb-3">
-            @foreach (var key in SubGroups.Keys)
-            {
-                var groupFiles = SubGroups[key];
-                <div class="category-box text-center p-3"
-                     style="cursor:pointer; background:#0d6efd; border-radius:5px; width:150px;"
-                     @onclick="() => ToggleSubGroup(key)">
-
-                    <strong>@key</strong><br />
-                    @groupFiles.Count(f => f.Status != MediaFileStatus.ToDelete) files
-
-                    <div class="mt-2">
-                        <button class="btn btn-sm btn-success me-1"
-                                @onclick:stopPropagation
-                                @onclick="() => KeepAll(key)">
-                            Keep All
-                        </button>
-                        <button class="btn btn-sm btn-danger me-1"
-                                @onclick:stopPropagation
-                                @onclick="() => DeleteAll(key)">
-                            Delete All
-                        </button>
-                        <button class="btn btn-sm btn-warning"
-                                @onclick:stopPropagation
-                                @onclick="() => DeleteAllButOne(key)">
-                            Delete All But One
-                        </button>
-                    </div>
-                </div>
-            }
+        <div class="alert alert-success">
+            All files in this category handled.
         </div>
     }
-
-    @if (ExpandedSubKey != null && SubGroups.ContainsKey(ExpandedSubKey))
+    else
     {
-        <div class="d-flex gap-2 flex-wrap mb-3">
-            @foreach (var file in SubGroups[ExpandedSubKey].Where(f => f.Status == MediaFileStatus.Initial))
-            {
-                <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
-                    <div style="height:60px; display:flex; align-items:center; justify-content:center;">
-                        @file.SubCategory
+        <button class="btn btn-success mb-3" @onclick="AcceptAll">
+            Accept All
+        </button>
+
+        @if (CurrentCategory == MediaMainCategory.Audio)
+        {
+            <div class="d-flex gap-3 flex-wrap mb-3">
+                @foreach (var group in AudioGroups)
+                {
+                    <div class="file-type-box p-2 border" style="width:150px;">
+                        <strong>@group.Key</strong> (@(group.Value.Count()) files)
+                        <div class="mt-2">
+                            @foreach (var file in group.Value)
+                            {
+                                <div class="file-card mb-1" style="border:1px solid #ccc; padding:4px;">
+                                    @file.FileName
+                                    <button class="btn btn-sm btn-success ms-1" @onclick="() => Keep(file)">Keep</button>
+                                </div>
+                            }
+                        </div>
                     </div>
+                }
+            </div>
+        }
+        else if (CurrentCategory == MediaMainCategory.Document)
+        {
+            <div class="d-flex gap-2 flex-wrap mb-3">
+                @foreach (var file in FilesInCategory)
+                {
+                    <div class="file-card text-center p-2" style="width:150px; border:1px solid #ccc;">
+                        @file.FileName
+                        <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file)">Keep</button>
+                    </div>
+                }
+            </div>
+        }
+        else if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
+        {
+            @foreach (var yearGroup in YearGroups)
+            {
+                <h5>@yearGroup.Key</h5>
+                @foreach (var monthGroup in yearGroup.Value)
+                {
+                    <div class="month-group mb-3 p-2 border">
+                        <strong>@monthGroup.Key</strong> (@(monthGroup.Value.Count()) files)
+                        <button class="btn btn-sm btn-success ms-2" @onclick="() => AcceptAll(monthGroup.Value)">Accept All Month</button>
 
-                    <div style="font-size:0.75em;">@file.FileName</div>
-
-                    <button class="btn btn-sm btn-success mt-1 me-1"
-                            @onclick="() => Keep(file)">
-                        Keep
-                    </button>
-
-                    <button class="btn btn-sm btn-danger mt-1"
-                            @onclick="() => Delete(file)">
-                        Delete
-                    </button>
-                </div>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            @foreach (var file in monthGroup.Value)
+                            {
+                                <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
+                                    @file.FileName
+                                    <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file)">Keep</button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
             }
-        </div>
+        }
     }
 
-    <button class="btn btn-primary"
-            @onclick="GoNext"
-            disabled="@(CanMoveNext == false)">
+    <button class="btn btn-primary mt-3" @onclick="GoNext" disabled="@(!CanMoveNext)">
         Next →
     </button>
 
@@ -88,131 +101,93 @@
 </div>
 
 @code {
-    [Parameter] public string CategoryString { get; set; } = "image";
+    [Parameter] public string CategoryString { get; set; } = "audio";
 
     private MediaMainCategory CurrentCategory;
-    private Dictionary<string, List<MediaFile>> SubGroups = new();
-    private string? ExpandedSubKey;
+    private List<MediaFile> FilesInCategory = new();
+    private Dictionary<string, List<MediaFile>> AudioGroups = new();
+    private Dictionary<int, Dictionary<int, List<MediaFile>>> YearGroups = new();
 
-    bool CanMoveNext => RemainingFiles == 0;
-
-    int RemainingFiles =>
-        DuplicateService.AllFiles
-            .Count(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial);
+    bool CanMoveNext =>
+        !DuplicateService.AllFiles
+            .Any(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial);
 
     protected override void OnInitialized()
     {
         CurrentCategory = CategoryString.ToLower() switch
         {
-            "image" => MediaMainCategory.Image,
-            "video" => MediaMainCategory.Video,
             "audio" => MediaMainCategory.Audio,
             "document" => MediaMainCategory.Document,
-            _ => MediaMainCategory.Image
+            "image" => MediaMainCategory.Image,
+            "video" => MediaMainCategory.Video,
+            _ => MediaMainCategory.Audio
         };
 
-        LoadSubGroups();
-        LogDebug();
+        LoadFiles();
     }
 
-    void LoadSubGroups()
+    void LoadFiles()
     {
-        // Only include actionable files (Initial)
-        var files = DuplicateService.AllFiles
+        FilesInCategory = DuplicateService.AllFiles
             .Where(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial)
             .ToList();
 
-        SubGroups = files
-            .GroupBy(f => $"{f.SubCategory} - {f.Year}")
-            .OrderBy(g => g.Key)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        LogDebugGroups();
-    }
-
-    void ToggleSubGroup(string key)
-    {
-        ExpandedSubKey = ExpandedSubKey == key ? null : key;
+        if (CurrentCategory == MediaMainCategory.Audio)
+        {
+            AudioGroups = FilesInCategory
+                .GroupBy(f => f.Extension.ToLowerInvariant())
+                .OrderBy(g => g.Key)
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+        else if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
+        {
+            YearGroups = FilesInCategory
+                .GroupBy(f => f.Year)
+                .OrderBy(g => g.Key)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.GroupBy(f => f.Month)
+                          .OrderBy(m => m.Key)
+                          .ToDictionary(m => m.Key, m => m.ToList())
+                );
+        }
     }
 
     void Keep(MediaFile file)
     {
         file.Status = MediaFileStatus.ToKeep;
-        Refresh();
+        LoadFiles();
     }
 
-    void Delete(MediaFile file)
+    void AcceptAll()
     {
-        file.Status = MediaFileStatus.ToDelete;
-        Refresh();
+        foreach (var file in FilesInCategory)
+            file.Status = MediaFileStatus.ToKeep;
+
+        LoadFiles();
     }
 
-    void KeepAll(string key)
+    void AcceptAll(List<MediaFile> files)
     {
-        foreach (var f in SubGroups[key])
-            f.Status = MediaFileStatus.ToKeep;
-        Refresh();
-    }
+        foreach (var file in files)
+            file.Status = MediaFileStatus.ToKeep;
 
-    void DeleteAll(string key)
-    {
-        foreach (var f in SubGroups[key])
-            f.Status = MediaFileStatus.ToDelete;
-        Refresh();
-    }
-
-    void DeleteAllButOne(string key)
-    {
-        var list = SubGroups[key];
-        if (!list.Any()) return;
-
-        var newest = list.OrderByDescending(f => f.CreatedAt).First();
-        foreach (var f in list)
-            f.Status = f == newest ? MediaFileStatus.ToKeep : MediaFileStatus.ToDelete;
-
-        Refresh();
-    }
-
-    void Refresh()
-    {
-        LoadSubGroups();
-        InvokeAsync(StateHasChanged);
+        LoadFiles();
     }
 
     void GoNext()
     {
-        var order = new[] {
-            MediaMainCategory.Image,
-            MediaMainCategory.Video,
-            MediaMainCategory.Audio,
-            MediaMainCategory.Document
-        };
-
+        var order = new[] { MediaMainCategory.Audio, MediaMainCategory.Document, MediaMainCategory.Image, MediaMainCategory.Video };
         var index = Array.IndexOf(order, CurrentCategory);
+
         if (index < order.Length - 1)
         {
-            var next = order[index + 1].ToString().ToLower();
-            Navigation.NavigateTo($"/category-step/{next}");
+            var nextCat = order[index + 1].ToString().ToLower();
+            Navigation.NavigateTo($"/category-step/{nextCat}");
         }
         else
         {
             Navigation.NavigateTo("/");
         }
-    }
-
-    void LogDebug()
-    {
-        Console.WriteLine($"[DEBUG] Category: {CurrentCategory}, Remaining: {RemainingFiles}");
-        foreach (var f in DuplicateService.AllFiles.Where(f => f.MainCategory == CurrentCategory))
-        {
-            Console.WriteLine($"    {f.FileName} -> Status={f.Status}, Sub={f.SubCategory}");
-        }
-    }
-
-    void LogDebugGroups()
-    {
-        Console.WriteLine($"[DEBUG] SubGroups created: {SubGroups.Count}");
-        foreach (var g in SubGroups)
-            Console.WriteLine($"    {g.Key}: {g.Value.Count} files");
     }
 }
