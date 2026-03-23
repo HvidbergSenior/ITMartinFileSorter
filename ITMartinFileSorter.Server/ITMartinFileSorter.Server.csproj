@@ -19,7 +19,7 @@
 
   <!-- Copy FFmpeg files to output -->
   <ItemGroup>
-    <None Include="Ffmeg\bin\**\*.*">
+    <None Include="ffmpeg\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
