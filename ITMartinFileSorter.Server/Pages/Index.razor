@@ -94,7 +94,10 @@
         @if (AllCategoriesHandled)
         {
             <div class="mt-4">
-                <button class="btn btn-success" @onclick="ExportFiles">Export All</button>
+                <button class="btn btn-success"
+                        @onclick="GoToExport">
+                    Export Organized Files
+                </button>
             </div>
         }
     }
@@ -122,10 +125,9 @@
 
     bool AllCategoriesHandled =>
         CategoryOrder.All(cat =>
-            DuplicateService.AllFiles
-                .Where(f => f.MainCategory == cat)
-                .All(f => f.Status == MediaFileStatus.ToKeep));
-
+            !DuplicateService.AllFiles
+                .Any(f => f.MainCategory == cat &&
+                          f.Status == MediaFileStatus.Initial));
     int ScanProgressPercent =>
         TotalFilesToScan == 0 ? 0 : (int)((double)CurrentFileIndex / TotalFilesToScan * 100);
 
@@ -164,6 +166,7 @@
     }
 
     void GoToDuplicates() => Navigation.NavigateTo("/duplicates");
+    void GoToExport() => Navigation.NavigateTo("/export");
 
     void ExportFiles()
     {

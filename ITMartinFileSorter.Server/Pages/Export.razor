@@ -1,56 +1,102 @@
 ﻿@page "/export"
-@inject DuplicateService DuplicateService
 @using ITMartinFileSorter.Application.Services
-@using Microsoft.AspNetCore.Components.Forms
+@inject DuplicateService DuplicateService
 
 <div class="container mt-4">
-    <h4>Export Organized Folder</h4>
 
-    <InputText @bind-Value="OutputFolder" placeholder="Enter output folder path..." class="form-control mb-2" />
-    <button class="btn btn-success" @onclick="ExportFiles">Export</button>
+    <h4>Export Organized Files</h4>
 
-    @if (!string.IsNullOrEmpty(Message))
+    @if (!FilesToExport.Any())
     {
-        <p>@Message</p>
+        <div class="alert alert-warning">
+            No files marked to keep.
+        </div>
     }
+    else
+    {
+        <h5>Preview of new structure</h5>
+
+        <div class="border p-3 mb-3" style="max-height:400px; overflow:auto;">
+            @foreach (var folder in ExportStructure)
+            {
+                <div class="mb-2">
+                    <strong>@folder.Key</strong>
+                    <ul>
+                        @foreach (var file in folder.Value)
+                        {
+                            <li>@file.FileName</li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+
+        <button class="btn btn-success" @onclick="ExportFiles">
+            Create "after" Folder
+        </button>
+
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <div class="alert alert-info mt-3">@Message</div>
+        }
+    }
+
 </div>
 
 @code {
-    string OutputFolder = "";
+
+    IEnumerable<MediaFile> FilesToExport =>
+        DuplicateService.AllFiles
+            .Where(f => f.Status == MediaFileStatus.ToKeep);
+
+    Dictionary<string, List<MediaFile>> ExportStructure =>
+        FilesToExport
+            .GroupBy(f => f.DynamicFolder ?? "Other")
+            .OrderBy(g => g.Key)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
     string Message = "";
 
     void ExportFiles()
     {
-        if (string.IsNullOrWhiteSpace(OutputFolder) || !Directory.Exists(OutputFolder))
+        var sourceRoot = DuplicateService.FolderPath;
+
+        if (string.IsNullOrWhiteSpace(sourceRoot) ||
+            !Directory.Exists(sourceRoot))
         {
-            Message = "Output folder is invalid.";
+            Message = "Invalid source folder.";
             return;
         }
 
-       // DirectoryCopy(DuplicateService.WorkingFolder, OutputFolder, true);
-        Message = "Export completed!";
-    }
+        // ⭐ Export next to source
+        var targetRoot = Path.Combine(sourceRoot, "After");
 
-    static void DirectoryCopy(string sourceDir, string destDir, bool copySubDirs)
-    {
-        var dir = new DirectoryInfo(sourceDir);
-        if (!dir.Exists) return;
+        Directory.CreateDirectory(targetRoot);
 
-        Directory.CreateDirectory(destDir);
+        int copied = 0;
 
-        foreach (FileInfo file in dir.GetFiles())
+        foreach (var file in FilesToExport)
         {
-            string targetFile = Path.Combine(destDir, file.Name);
-            file.CopyTo(targetFile, true);
-        }
+            var subFolder = file.DynamicFolder ?? "Other";
 
-        if (copySubDirs)
-        {
-            foreach (DirectoryInfo subDir in dir.GetDirectories())
+            // ⭐ Preserve your categorizer structure
+            var destFolder = Path.Combine(targetRoot, subFolder);
+            Directory.CreateDirectory(destFolder);
+
+            var sourcePath = file.WorkingPath ?? file.FullPath;
+            var destPath = Path.Combine(destFolder, file.FileName);
+
+            try
             {
-                string newDestDir = Path.Combine(destDir, subDir.Name);
-                DirectoryCopy(subDir.FullName, newDestDir, true);
+                File.Copy(sourcePath, destPath, overwrite: true);
+                copied++;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Copy failed: {file.FileName} — {ex.Message}");
             }
         }
+
+        Message = $"Export completed.\n{copied} files copied to:\n{targetRoot}";
     }
 }
