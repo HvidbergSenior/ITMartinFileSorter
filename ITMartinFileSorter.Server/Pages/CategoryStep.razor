@@ -1,22 +1,15 @@
 ﻿@page "/category-step/{CategoryString}"
-@using System.Linq
 @using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 
 <div class="container mt-4">
-    <a class="btn btn-secondary mb-3" href="/">← Back</a>
+    <button class="btn btn-primary mb-3" @onclick="Continue" disabled="@(!CanContinue)">
+        Continue
+    </button>
+
     <h4>Step: @CurrentCategory</h4>
-
-    @{
-        var remaining = DuplicateService.AllFiles
-            .Count(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial);
-    }
-
-    <div class="alert alert-info">
-        Remaining: @remaining files
-    </div>
 
     @if (!FilesInCategory.Any())
     {
@@ -87,17 +80,6 @@
             }
         }
     }
-
-    <button class="btn btn-primary mt-3" @onclick="GoNext" disabled="@(!CanMoveNext)">
-        Next →
-    </button>
-
-    @if (!CanMoveNext)
-    {
-        <div class="alert alert-warning mt-2">
-            Handle all files before continuing.
-        </div>
-    }
 </div>
 
 @code {
@@ -108,7 +90,7 @@
     private Dictionary<string, List<MediaFile>> AudioGroups = new();
     private Dictionary<int, Dictionary<int, List<MediaFile>>> YearGroups = new();
 
-    bool CanMoveNext =>
+    bool CanContinue =>
         !DuplicateService.AllFiles
             .Any(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial);
 
@@ -175,19 +157,8 @@
         LoadFiles();
     }
 
-    void GoNext()
+    void Continue()
     {
-        var order = new[] { MediaMainCategory.Audio, MediaMainCategory.Document, MediaMainCategory.Image, MediaMainCategory.Video };
-        var index = Array.IndexOf(order, CurrentCategory);
-
-        if (index < order.Length - 1)
-        {
-            var nextCat = order[index + 1].ToString().ToLower();
-            Navigation.NavigateTo($"/category-step/{nextCat}");
-        }
-        else
-        {
-            Navigation.NavigateTo("/");
-        }
+        Navigation.NavigateTo("/");
     }
 }

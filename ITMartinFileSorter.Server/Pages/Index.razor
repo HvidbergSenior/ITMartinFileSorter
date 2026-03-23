@@ -10,12 +10,13 @@
 
 <div class="container mt-4">
 
+    @* SCAN INPUT AND PROGRESS *@
     @if (!DuplicateService.AllFiles.Any())
     {
         <div class="folder-input d-flex mb-3">
             <input type="text" @bind="FolderPath" placeholder="Enter folder path..." class="form-control me-2" />
             <button class="btn btn-primary" @onclick="ScanFolder" disabled="@IsScanning">
-                @(IsScanning ? "Scanning..." : "Scan")
+                @(IsScanning ? $"Scanning... ({CurrentFileIndex})" : "Scan")
             </button>
         </div>
 
@@ -30,6 +31,7 @@
             </div>
         }
     }
+    @* DUPLICATE HANDLING REQUIRED *@
     else if (!DuplicateService.DuplicatesHandled)
     {
         <div class="alert alert-warning mt-2">
@@ -39,6 +41,7 @@
             </button>
         </div>
     }
+    @* MAIN CATEGORY BOXES AFTER DUPLICATES *@
     else
     {
         <h4>File Summary</h4>
@@ -50,15 +53,17 @@
                     .Where(f => f.MainCategory == cat)
                     .ToList();
 
-                var count = filesInCat.Count(f => f.Status == MediaFileStatus.Initial || f.Status == MediaFileStatus.ToKeep);
-                var size = filesInCat.Sum(f => f.SizeBytes);
+                var remaining = filesInCat.Count(f => f.Status == MediaFileStatus.Initial);
+                var kept = filesInCat.Count(f => f.Status == MediaFileStatus.ToKeep);
+
+                bool isCurrent = remaining > 0;
 
                 <div class="main-category-box p-3 text-center"
-                     style="width:150px; border-radius:5px; cursor:@(IsCurrentCategory(cat) ? "pointer" : "not-allowed"); background:@GetCategoryColor(cat); opacity:@(IsCurrentCategory(cat) ? "1" : "0.6")"
+                     style="width:150px; border-radius:5px; cursor:@(isCurrent ? "pointer" : "not-allowed"); background:@GetCategoryColor(cat); opacity:@(isCurrent ? "1" : "0.6")"
                      @onclick="() => GoToCategory(cat)">
                     <strong>@cat</strong><br />
-                    @count files<br />
-                    @FormatSize(size)
+                    @remaining files remaining<br />
+                    @kept files kept
                 </div>
             }
 
@@ -68,6 +73,14 @@
                 @FormatSize(DuplicateService.AllFiles.Sum(f => f.SizeBytes))
             </div>
         </div>
+
+        @* EXPORT BUTTON WHEN ALL CATEGORIES HANDLED *@
+        @if (AllCategoriesHandled)
+        {
+            <div class="mt-4">
+                <button class="btn btn-success" @onclick="ExportFiles">Export All</button>
+            </div>
+        }
     }
 </div>
 
@@ -90,20 +103,11 @@
         MediaMainCategory.Video
     };
 
-    private MediaMainCategory CurrentStep
-    {
-        get
-        {
-            foreach (var cat in CategoryOrder)
-            {
-                if (DuplicateService.AllFiles.Any(f => f.MainCategory == cat && f.Status == MediaFileStatus.Initial))
-                    return cat;
-            }
-            return CategoryOrder.Last();
-        }
-    }
-
-    bool IsCurrentCategory(MediaMainCategory cat) => cat == CurrentStep;
+    bool AllCategoriesHandled =>
+        CategoryOrder.All(cat =>
+            DuplicateService.AllFiles
+                .Where(f => f.MainCategory == cat)
+                .All(f => f.Status == MediaFileStatus.ToKeep));
 
     string GetCategoryColor(MediaMainCategory cat) => cat switch
     {
@@ -129,22 +133,22 @@
 
     void GoToCategory(MediaMainCategory cat)
     {
-        if (!IsCurrentCategory(cat))
-            return; // only current step is clickable
+        var filesRemaining = DuplicateService.AllFiles
+            .Any(f => f.MainCategory == cat && f.Status == MediaFileStatus.Initial);
 
-        var catStr = cat switch
-        {
-            MediaMainCategory.Audio => "audio",
-            MediaMainCategory.Document => "document",
-            MediaMainCategory.Image => "image",
-            MediaMainCategory.Video => "video",
-            _ => "audio"
-        };
+        if (!filesRemaining)
+            return;
 
+        var catStr = cat.ToString().ToLower();
         Navigation.NavigateTo($"/category-step/{catStr}");
     }
 
     void GoToDuplicates() => Navigation.NavigateTo("/duplicates");
+
+    void ExportFiles()
+    {
+        Console.WriteLine("Export triggered");
+    }
 
     async Task ScanFolder()
     {
@@ -153,16 +157,21 @@
 
         IsScanning = true;
         DuplicateService.AllFiles.Clear();
+        CurrentFileIndex = 0;
+        CurrentFileName = "";
         await InvokeAsync(StateHasChanged);
 
         try
         {
             var scanned = new List<MediaFile>();
+            int i = 0;
 
-            var files = FileScanner.ScanFolder(FolderPath, (i, path) =>
+            var files = FileScanner.ScanFolder(FolderPath, (index, path) =>
             {
-                CurrentFileIndex = i;
+                i = index;
+                CurrentFileIndex = index;
                 CurrentFileName = Path.GetFileName(path);
+                InvokeAsync(StateHasChanged);
             }).ToList();
 
             foreach (var file in files)
@@ -170,7 +179,6 @@
                 file.WorkingPath = file.FullPath;
                 file.Status = MediaFileStatus.Initial;
 
-                // Hash
                 try
                 {
                     var hash = HashService.ComputeHash(file.FullPath);
@@ -181,17 +189,16 @@
                     file.SetHash($"{file.SizeBytes}_{file.FileName}");
                 }
 
-                // Categorize
                 MediaCategorizer.Categorize(file);
 
-                // Thumbnail
+                // Thumbnails for images
                 var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
                 file.ThumbnailPath = ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".tiff" or ".tif"
                     ? $"/api/media?path={Uri.EscapeDataString(file.FullPath)}"
                     : "_content/file-icon.png";
 
                 scanned.Add(file);
-                await InvokeAsync(StateHasChanged); // update progress
+                await InvokeAsync(StateHasChanged);
             }
 
             DuplicateService.AllFiles = scanned;
