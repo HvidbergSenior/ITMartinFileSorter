@@ -7,11 +7,17 @@
 <div class="container mt-4">
     <h4>Handle Duplicates</h4>
 
+    @* CONTINUE BUTTON ON TOP *@
+    <button class="btn btn-success mb-3"
+            @onclick="Continue"
+            disabled="@(!AllGroupsHandled)">
+        Continue
+    </button>
+
     @if (!HasDuplicates)
     {
         <div class="alert alert-success">
             No duplicates found
-            <button class="btn btn-primary ms-2" @onclick="Continue">Continue</button>
         </div>
     }
     else
@@ -73,19 +79,20 @@
                 }
             </div>
         }
+    }
 
-        <button class="btn btn-success mt-3"
-                @onclick="Continue"
-                disabled="@(!AllGroupsHandled)">
-            Continue
-        </button>
+    @* OPTIONAL: You can still keep a bottom Continue button if desired *@
+    <button class="btn btn-success mt-3"
+            @onclick="Continue"
+            disabled="@(!AllGroupsHandled)">
+        Continue
+    </button>
 
-        @if (!AllGroupsHandled)
-        {
-            <div class="text-danger mt-2">
-                ⚠ You must handle all duplicate groups
-            </div>
-        }
+    @if (!AllGroupsHandled)
+    {
+        <div class="text-danger mt-2">
+            ⚠ You must handle all duplicate groups
+        </div>
     }
 </div>
 
