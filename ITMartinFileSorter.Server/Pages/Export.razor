@@ -57,46 +57,53 @@
 
     string Message = "";
 
-    void ExportFiles()
+    async Task ExportFiles()
     {
-        var sourceRoot = DuplicateService.FolderPath;
-
-        if (string.IsNullOrWhiteSpace(sourceRoot) ||
-            !Directory.Exists(sourceRoot))
+        try
         {
-            Message = "Invalid source folder.";
-            return;
+            var sourceRoot = DuplicateService.FolderPath;
+
+            if (string.IsNullOrWhiteSpace(sourceRoot) ||
+                !Directory.Exists(sourceRoot))
+            {
+                Message = "Invalid source folder.";
+                return;
+            }
+
+            var targetRoot = Path.Combine(sourceRoot, "After");
+
+            Directory.CreateDirectory(targetRoot);
+
+            int copied = 0;
+
+            foreach (var file in FilesToExport)
+            {
+                var subFolder = file.DynamicFolder ?? "Other";
+
+                var destFolder = Path.Combine(targetRoot, subFolder);
+                Directory.CreateDirectory(destFolder);
+
+                var sourcePath = file.WorkingPath ?? file.FullPath;
+                var destPath = Path.Combine(destFolder, file.FileName);
+
+                try
+                {
+                    File.Copy(sourcePath, destPath, overwrite: true);
+                    copied++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Copy failed: {file.FileName} — {ex.Message}");
+                }
+            }
+
+            Message = $"Export completed. {copied} files copied to:\n{targetRoot}";
+        }
+        catch (Exception ex)
+        {
+            Message = $"Export failed: {ex.Message}";
         }
 
-        // ⭐ Export next to source
-        var targetRoot = Path.Combine(sourceRoot, "After");
-
-        Directory.CreateDirectory(targetRoot);
-
-        int copied = 0;
-
-        foreach (var file in FilesToExport)
-        {
-            var subFolder = file.DynamicFolder ?? "Other";
-
-            // ⭐ Preserve your categorizer structure
-            var destFolder = Path.Combine(targetRoot, subFolder);
-            Directory.CreateDirectory(destFolder);
-
-            var sourcePath = file.WorkingPath ?? file.FullPath;
-            var destPath = Path.Combine(destFolder, file.FileName);
-
-            try
-            {
-                File.Copy(sourcePath, destPath, overwrite: true);
-                copied++;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Copy failed: {file.FileName} — {ex.Message}");
-            }
-        }
-
-        Message = $"Export completed.\n{copied} files copied to:\n{targetRoot}";
+        await InvokeAsync(StateHasChanged);
     }
 }
