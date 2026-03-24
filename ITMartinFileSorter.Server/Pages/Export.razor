@@ -90,10 +90,11 @@
             }
 
             var targetRoot = Path.Combine(sourceRoot, "After");
-
             Directory.CreateDirectory(targetRoot);
 
             int copied = 0;
+
+            var options = DuplicateService.GroupingOptions ?? new GroupingOptions();
 
             foreach (var file in FilesToExport)
             {
@@ -103,11 +104,22 @@
                 Directory.CreateDirectory(destFolder);
 
                 var sourcePath = file.WorkingPath ?? file.FullPath;
-                var destPath = Path.Combine(destFolder, file.FileName);
+
+                // ⭐ Album-style name
+                var newName = AlbumStyleNameBuilder.Build(
+                    file,
+                    copied + 1);
+
+                // ⭐ Prevent collisions
+                newName = AlbumStyleNameBuilder.EnsureUnique(
+                    destFolder,
+                    newName);
+
+                var destPath = Path.Combine(destFolder, newName);
 
                 try
                 {
-                    File.Copy(sourcePath, destPath, overwrite: true);
+                    File.Copy(sourcePath, destPath, overwrite: false);
                     copied++;
                 }
                 catch (Exception ex)
@@ -116,7 +128,7 @@
                 }
             }
 
-            ExportPath = targetRoot; // ⭐ Save for conversion
+            ExportPath = targetRoot;
 
             Message = $"Export completed. {copied} files copied to:\n{targetRoot}";
         }

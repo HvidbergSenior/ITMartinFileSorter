@@ -8,17 +8,32 @@ public class VideoCategorizer
     public void Categorize(MediaFile file)
     {
         var name = file.FileName.ToLowerInvariant();
-        string yearMonth = file.Year > 1990 ? $"{file.Year}-{file.Month:00}" : "Unknown";
+        string yearMonth = file.Year > 1990
+            ? $"{file.Year}-{file.Month:00}"
+            : "Unknown";
 
-        if (name.Contains("screen"))
+        if (name.Contains("screen") || name.Contains("capture"))
+        {
             file.SubCategory = MediaSubCategory.ScreenRecording;
-        else if (name.StartsWith("img_"))
+        }
+        else if (name.StartsWith("vid_") ||
+                 name.StartsWith("mov_") ||
+                 name.StartsWith("img_") ||
+                 name.StartsWith("pxl_"))
+        {
             file.SubCategory = MediaSubCategory.PhoneVideo;
+        }
         else
+        {
             file.SubCategory = MediaSubCategory.OtherVideo;
+        }
 
-        file.DynamicFolder = Path.Combine("Videos", file.SubCategory.ToString(), yearMonth);
+        file.DynamicFolder = Path.Combine(
+            "Videos",
+            file.SubCategory.ToString(),
+            yearMonth);
 
-        Console.WriteLine($"[DEBUG] Categorized {file.FileName} -> Main: {file.MainCategory}, Sub: {file.SubCategory}, DynamicFolder: {file.DynamicFolder}");
+        Console.WriteLine(
+            $"[DEBUG] Categorized {file.FileName} -> Main: {file.MainCategory}, Sub: {file.SubCategory}, Folder: {file.DynamicFolder}");
     }
 }
