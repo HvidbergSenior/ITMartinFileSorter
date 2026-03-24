@@ -17,14 +17,13 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
 
-  <!-- Copy FFmpeg files to output -->
   <ItemGroup>
-    <None Include="ffmpeg\**\*.*">
+    <None Include="Ffmpeg\**\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
   </ItemGroup>
-
+  
   <!-- Media temp folder for thumbnails -->
   <ItemGroup>
     <Folder Include="wwwroot\media_temp\" />

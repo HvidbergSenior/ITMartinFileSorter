@@ -1,7 +1,8 @@
 ﻿@page "/export"
 @using ITMartinFileSorter.Application.Services
 @inject DuplicateService DuplicateService
-
+@inject VideoConverterService VideoConverterService
+@inject MediaServerProService MediaServerProService
 <div class="container mt-4">
 
     <h4>Export Organized Files</h4>
@@ -40,10 +41,28 @@
             <div class="alert alert-info mt-3">@Message</div>
         }
     }
-
+    @if (!string.IsNullOrEmpty(ExportPath) &&
+         Directory.Exists(Path.Combine(ExportPath, "Videos")))
+    {
+        <button class="btn btn-warning mt-3"
+                disabled="@IsConverting"
+                @onclick="ConvertVideos">
+            Optional: Convert Videos for Synology
+        </button>
+    }
+    
+    @if (IsConverting || !string.IsNullOrEmpty(ConversionStatus))
+    {
+        <div class="alert alert-info mt-3">
+            @ConversionStatus
+        </div>
+    }
 </div>
 
 @code {
+    bool IsConverting = false;
+    string ConversionStatus = "";
+    string ExportPath = "";
 
     IEnumerable<MediaFile> FilesToExport =>
         DuplicateService.AllFiles
@@ -97,6 +116,8 @@
                 }
             }
 
+            ExportPath = targetRoot; // ⭐ Save for conversion
+
             Message = $"Export completed. {copied} files copied to:\n{targetRoot}";
         }
         catch (Exception ex)
@@ -105,5 +126,28 @@
         }
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    async Task ConvertVideos()
+    {
+        if (string.IsNullOrWhiteSpace(ExportPath))
+        {
+            ConversionStatus = "Export first.";
+            return;
+        }
+
+        IsConverting = true;
+        ConversionStatus = "Running Media Server optimization...";
+
+        await MediaServerProService.OptimizeExportAsync(
+            ExportPath,
+            progress =>
+            {
+                ConversionStatus = progress;
+                InvokeAsync(StateHasChanged);
+            });
+
+        ConversionStatus = "DONE ✅ Media Server Ready!";
+        IsConverting = false;
     }
 }

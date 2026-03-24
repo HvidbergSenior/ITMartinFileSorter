@@ -4,56 +4,220 @@ namespace ITMartinFileSorter.Application.Services;
 
 public class VideoConverterService
 {
-    private readonly string _ffmpegPath;
+    private readonly string _ffmpegPath =
+        Path.Combine(AppContext.BaseDirectory, "Ffmpeg", "ffmpeg.exe");
 
-    public VideoConverterService()
+    private readonly string[] _videoExtensions =
     {
-        Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffmpeg.exe");
+        ".avi", ".mov", ".mkv", ".wmv", ".flv",
+        ".mpeg", ".mpg", ".ts", ".m4v"
+    };
 
-        if (!File.Exists(_ffmpegPath))
-            throw new FileNotFoundException($"ffmpeg.exe not found at {_ffmpegPath}");
+    private void Log(string message)
+    {
+        Console.WriteLine($"[VideoConverter] {message}");
     }
 
-    public bool IsVideoFile(string path)
+    public async Task ConvertFolderAsync(
+        string rootFolder,
+        Action<string>? progress = null,
+        bool deleteOriginal = false)
     {
-        var ext = Path.GetExtension(path).ToLowerInvariant();
+        Log($"Scanning folder: {rootFolder}");
 
-        return ext is ".mp4" or ".mkv" or ".avi" or ".mov" or ".wmv" or ".flv" or ".webm";
-    }
+        var files = Directory
+            .EnumerateFiles(rootFolder, "*.*", SearchOption.AllDirectories)
+            .Where(f => _videoExtensions.Contains(
+                Path.GetExtension(f).ToLower()))
+            .ToList();
 
-    public async Task<string?> ConvertToMp4Async(string inputPath, string outputFolder)
-    {
-        if (!IsVideoFile(inputPath))
-            return null;
+        Log($"Found {files.Count} video files");
 
-        var fileName = Path.GetFileNameWithoutExtension(inputPath);
-        var outputPath = Path.Combine(outputFolder, fileName + ".mp4");
+        int total = files.Count;
+        int done = 0;
 
-        // Skip if already MP4
-        if (Path.GetExtension(inputPath).Equals(".mp4", StringComparison.OrdinalIgnoreCase))
+        progress?.Invoke($"0/{total} videos processed");
+
+        if (total == 0)
         {
-            File.Copy(inputPath, outputPath, true);
-            return outputPath;
+            Log("No videos to process.");
+            return;
         }
 
-        var arguments =
-            $"-y -i \"{inputPath}\" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k \"{outputPath}\"";
+        await Parallel.ForEachAsync(
+            files,
+            new ParallelOptions { MaxDegreeOfParallelism = 1 }, // easier debugging
+            async (file, _) =>
+            {
+                Log($"Processing: {file}");
+
+                if (ShouldSkip(file))
+                {
+                    Log($"Skipped: {file}");
+                    var skipped = Interlocked.Increment(ref done);
+                    progress?.Invoke($"{skipped}/{total} videos processed");
+                    return;
+                }
+
+                await ConvertFileAsync(file, deleteOriginal);
+
+                var current = Interlocked.Increment(ref done);
+                progress?.Invoke($"{current}/{total} videos processed");
+            });
+    }
+
+    private bool ShouldSkip(string file)
+    {
+        var info = new FileInfo(file);
+
+        if (info.Length < 20_000_000)
+        {
+            Log($"Skip small file: {file}");
+            return true;
+        }
+
+        var name = Path.GetFileName(file).ToLower();
+
+        if (name.Contains("sample") || name.Contains("trailer"))
+        {
+            Log($"Skip sample/trailer: {file}");
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task ConvertFileAsync(string inputFile, bool deleteOriginal)
+    {
+        Log($"Converting: {inputFile}");
+
+        var ext = Path.GetExtension(inputFile).ToLower();
+        var outputFile = Path.ChangeExtension(inputFile, ".mp4");
+
+        if (File.Exists(outputFile))
+        {
+            Log($"Output already exists: {outputFile}");
+            return;
+        }
+
+        if (ext == ".mp4")
+        {
+            Log("Already MP4, skipping");
+            return;
+        }
+
+        // 🚀 1) PHONE-OPTIMIZED REMUX (FAST)
+        // Copies ONLY main video + audio streams
+        var remuxArgs =
+            $"-y -i \"{inputFile}\" " +
+            "-map 0:v:0 -map 0:a:0 " +
+            "-c copy -movflags +faststart " +
+            $"\"{outputFile}\"";
+
+        Log("Attempt fast remux (video+audio only)");
+
+        if (await RunFfmpegAsync(remuxArgs))
+        {
+            Log("Remux success");
+            Cleanup(inputFile, outputFile, deleteOriginal);
+            return;
+        }
+
+        // 🚀 2) GPU ENCODE (Intel QuickSync)
+        var gpuArgs =
+            $"-y -i \"{inputFile}\" " +
+            "-c:v h264_qsv -preset fast " +
+            "-c:a aac -b:a 192k " +
+            $"\"{outputFile}\"";
+
+        Log("Attempt GPU encode");
+
+        if (await RunFfmpegAsync(gpuArgs))
+        {
+            Log("GPU encode success");
+            Cleanup(inputFile, outputFile, deleteOriginal);
+            return;
+        }
+
+        // 🧠 3) CPU FALLBACK (ULTRAFAST)
+        var cpuArgs =
+            $"-y -i \"{inputFile}\" " +
+            "-c:v libx264 -preset ultrafast -crf 23 " +
+            "-c:a aac -b:a 192k " +
+            $"\"{outputFile}\"";
+
+        Log("Attempt CPU encode");
+
+        if (await RunFfmpegAsync(cpuArgs))
+        {
+            Log("CPU encode success");
+            Cleanup(inputFile, outputFile, deleteOriginal);
+        }
+        else
+        {
+            Log("CPU encode FAILED");
+        }
+    }
+
+    private static void Cleanup(
+        string inputFile,
+        string outputFile,
+        bool deleteOriginal)
+    {
+        if (deleteOriginal && File.Exists(outputFile))
+            File.Delete(inputFile);
+    }
+
+    private async Task<bool> RunFfmpegAsync(string args)
+    {
+        Log($"Running FFmpeg: {_ffmpegPath} {args}");
+
+        if (!File.Exists(_ffmpegPath))
+        {
+            Log("FFmpeg executable NOT FOUND!");
+            return false;
+        }
 
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = _ffmpegPath,
-                Arguments = arguments,
+                Arguments = args,
                 RedirectStandardError = true,
+                RedirectStandardOutput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             }
         };
 
         process.Start();
+
+        // 🚀 Consume output streams live (prevents deadlocks)
+        _ = Task.Run(async () =>
+        {
+            while (!process.StandardOutput.EndOfStream)
+            {
+                var line = await process.StandardOutput.ReadLineAsync();
+                if (!string.IsNullOrWhiteSpace(line))
+                    Log($"OUT: {line}");
+            }
+        });
+
+        _ = Task.Run(async () =>
+        {
+            while (!process.StandardError.EndOfStream)
+            {
+                var line = await process.StandardError.ReadLineAsync();
+                if (!string.IsNullOrWhiteSpace(line))
+                    Log($"ERR: {line}");
+            }
+        });
+
         await process.WaitForExitAsync();
 
-        return process.ExitCode == 0 ? outputPath : null;
+        Log($"FFmpeg exit code: {process.ExitCode}");
+
+        return process.ExitCode == 0;
     }
 }
