@@ -1,165 +1,195 @@
 ﻿@page "/export"
 @using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
-@inject VideoConverterService VideoConverterService
-@inject MediaServerProService MediaServerProService
+@inject NavigationManager Navigation
+
 <div class="container mt-4">
 
-    <h4>Export Organized Files</h4>
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Export Organized Files</h4>
 
-    @if (!FilesToExport.Any())
-    {
-        <div class="alert alert-warning">
-            No files marked to keep.
+        <button class="btn btn-outline-secondary"
+                @onclick="GoBack">
+            Back
+        </button>
+    </div>
+
+    <!-- DESTINATION -->
+    <div class="card mb-3">
+        <div class="card-header bg-light">
+            Destination
         </div>
-    }
-    else
-    {
-        <h5>Preview of new structure</h5>
 
-        <div class="border p-3 mb-3" style="max-height:400px; overflow:auto;">
-            @foreach (var folder in ExportStructure)
+        <div class="card-body">
+            <div class="text-muted">
+                Files will be organized into category and year folders
+                inside an <strong>Exported</strong> folder.
+            </div>
+        </div>
+    </div>
+
+    <!-- STRUCTURE PREVIEW -->
+    <div class="card mb-3">
+
+        <div class="card-header bg-light">
+            <strong>Export Structure Preview</strong>
+        </div>
+
+        <div class="card-body">
+
+            @foreach (var cat in CategoryOrder)
             {
-                <div class="mb-2">
-                    <strong>@folder.Key</strong>
-                    <ul>
-                        @foreach (var file in folder.Value)
-                        {
-                            <li>@file.FileName</li>
-                        }
-                    </ul>
+                var kept = DuplicateService.AllFiles
+                    .Where(f => f.MainCategory == cat &&
+                                f.Status == MediaFileStatus.ToKeep)
+                    .ToList();
+
+                if (!kept.Any()) continue;
+
+                <div class="mb-4">
+
+                    <div style="font-weight:600; color:@GetCategoryColor(cat)">
+                        @GetCategoryIcon(cat) @cat (@kept.Count files)
+                    </div>
+
+                    @foreach (var yearGroup in kept
+                        .GroupBy(f => f.Year)
+                        .OrderByDescending(g => g.Key))
+                    {
+                        <div class="ms-3">
+                            📂 @yearGroup.Key (@yearGroup.Count())
+                        </div>
+                    }
+
                 </div>
             }
+
         </div>
+    </div>
 
-        <button class="btn btn-success" @onclick="ExportFiles">
-            Create "after" Folder
-        </button>
+    <!-- PROGRESS -->
+    @if (IsExporting)
+    {
+        <div class="alert alert-info">
+            <strong>Exporting files...</strong>
 
-        @if (!string.IsNullOrEmpty(Message))
-        {
-            <div class="alert alert-info mt-3">@Message</div>
-        }
-    }
-    @if (!string.IsNullOrEmpty(ExportPath) &&
-         Directory.Exists(Path.Combine(ExportPath, "Videos")))
-    {
-        <button class="btn btn-warning mt-3"
-                disabled="@IsConverting"
-                @onclick="ConvertVideos">
-            Optional: Convert Videos for Synology
-        </button>
-    }
-    
-    @if (IsConverting || !string.IsNullOrEmpty(ConversionStatus))
-    {
-        <div class="alert alert-info mt-3">
-            @ConversionStatus
+            <div class="progress mt-2">
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                     style="width:@ProgressPercent%">
+                    @ExportedCount / @TotalToExport
+                </div>
+            </div>
+
+            <div class="mt-1">@CurrentExportFile</div>
         </div>
     }
+
+    <!-- ACTION BUTTON (LEFT) -->
+    <div>
+        <button class="btn btn-success btn-lg"
+                @onclick="StartExport"
+                disabled="@IsExporting">
+            Start Export
+        </button>
+    </div>
+
 </div>
 
 @code {
-    bool IsConverting = false;
-    string ConversionStatus = "";
-    string ExportPath = "";
 
-    IEnumerable<MediaFile> FilesToExport =>
-        DuplicateService.AllFiles
-            .Where(f => f.Status == MediaFileStatus.ToKeep);
+    bool IsExporting = false;
+    int ExportedCount = 0;
+    int TotalToExport = 0;
+    string CurrentExportFile = "";
 
-    Dictionary<string, List<MediaFile>> ExportStructure =>
-        FilesToExport
-            .GroupBy(f => f.DynamicFolder ?? "Other")
-            .OrderBy(g => g.Key)
-            .ToDictionary(g => g.Key, g => g.ToList());
+    int ProgressPercent =>
+        TotalToExport == 0 ? 0 :
+        (int)((double)ExportedCount / TotalToExport * 100);
 
-    string Message = "";
-
-    async Task ExportFiles()
+    readonly MediaMainCategory[] CategoryOrder = new[]
     {
-        try
-        {
-            var sourceRoot = DuplicateService.FolderPath;
+        MediaMainCategory.Image,
+        MediaMainCategory.Video,
+        MediaMainCategory.Audio,
+        MediaMainCategory.Document
+    };
 
-            if (string.IsNullOrWhiteSpace(sourceRoot) ||
-                !Directory.Exists(sourceRoot))
-            {
-                Message = "Invalid source folder.";
-                return;
-            }
+    string GetCategoryColor(MediaMainCategory cat) => cat switch
+    {
+        MediaMainCategory.Audio => "#28a745",
+        MediaMainCategory.Document => "#0d6efd",
+        MediaMainCategory.Image => "#ffc107",
+        MediaMainCategory.Video => "#dc3545",
+        _ => "#6c757d"
+    };
 
-            var targetRoot = Path.Combine(sourceRoot, "After");
-            Directory.CreateDirectory(targetRoot);
+    string GetCategoryIcon(MediaMainCategory cat) => cat switch
+    {
+        MediaMainCategory.Image => "🖼️",
+        MediaMainCategory.Video => "🎬",
+        MediaMainCategory.Audio => "🎵",
+        MediaMainCategory.Document => "📄",
+        _ => "📁"
+    };
 
-            int copied = 0;
+    void GoBack() => Navigation.NavigateTo("/");
 
-            var options = DuplicateService.GroupingOptions ?? new GroupingOptions();
+    // ⭐ REAL EXPORT METHOD
+    async Task StartExport()
+    {
+        var files = DuplicateService.AllFiles
+            .Where(f => f.Status == MediaFileStatus.ToKeep)
+            .ToList();
 
-            foreach (var file in FilesToExport)
-            {
-                var subFolder = file.DynamicFolder ?? "Other";
+        if (!files.Any())
+            return;
 
-                var destFolder = Path.Combine(targetRoot, subFolder);
-                Directory.CreateDirectory(destFolder);
+        var exportRoot = Path.Combine(
+            DuplicateService.FolderPath,
+            "Exported");
 
-                var sourcePath = file.WorkingPath ?? file.FullPath;
+        Directory.CreateDirectory(exportRoot);
 
-                // ⭐ Album-style name
-                var newName = AlbumStyleNameBuilder.Build(
-                    file,
-                    copied + 1);
-
-                // ⭐ Prevent collisions
-                newName = AlbumStyleNameBuilder.EnsureUnique(
-                    destFolder,
-                    newName);
-
-                var destPath = Path.Combine(destFolder, newName);
-
-                try
-                {
-                    File.Copy(sourcePath, destPath, overwrite: false);
-                    copied++;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Copy failed: {file.FileName} — {ex.Message}");
-                }
-            }
-
-            ExportPath = targetRoot;
-
-            Message = $"Export completed. {copied} files copied to:\n{targetRoot}";
-        }
-        catch (Exception ex)
-        {
-            Message = $"Export failed: {ex.Message}";
-        }
+        IsExporting = true;
+        ExportedCount = 0;
+        TotalToExport = files.Count;
+        CurrentExportFile = "";
 
         await InvokeAsync(StateHasChanged);
-    }
 
-    async Task ConvertVideos()
-    {
-        if (string.IsNullOrWhiteSpace(ExportPath))
+        try
         {
-            ConversionStatus = "Export first.";
-            return;
-        }
-
-        IsConverting = true;
-        ConversionStatus = "Running Media Server optimization...";
-
-        await MediaServerProService.OptimizeExportAsync(
-            ExportPath,
-            progress =>
+            foreach (var file in files)
             {
-                ConversionStatus = progress;
-                InvokeAsync(StateHasChanged);
-            });
+                var catFolder = Path.Combine(
+                    exportRoot,
+                    file.MainCategory.ToString());
 
-        ConversionStatus = "DONE ✅ Media Server Ready!";
-        IsConverting = false;
+                var yearFolder = Path.Combine(
+                    catFolder,
+                    file.Year.ToString());
+
+                Directory.CreateDirectory(yearFolder);
+
+                var destination = Path.Combine(
+                    yearFolder,
+                    file.FileName);
+
+                CurrentExportFile = file.FileName;
+
+                File.Copy(file.WorkingPath, destination, overwrite: true);
+
+                ExportedCount++;
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        finally
+        {
+            IsExporting = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 }

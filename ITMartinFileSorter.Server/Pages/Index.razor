@@ -93,10 +93,18 @@
         @if (AllCategoriesHandled)
         {
             <div class="mt-4">
-                <button class="btn btn-success"
-                        @onclick="GoToExport">
-                    Export Organized Files
-                </button>
+
+                <!-- PREVIEW -->
+                <ExportPreview />
+
+                <!-- EXPORT BUTTON -->
+                <div class="mt-3">
+                    <button class="btn btn-success"
+                            @onclick="GoToExport">
+                        Export Organized Files
+                    </button>
+                </div>
+
             </div>
         }
     }

@@ -1,13 +1,26 @@
 ﻿@page "/category-step/{CategoryString}"
 @using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Domain.Enums
+@using ITMartinFileSorter.Domain.Entities
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 
 <div class="container mt-4">
-    <button class="btn btn-primary mb-3" @onclick="Continue" disabled="@(!CanContinue)">
-        Continue
-    </button>
+
+    <!-- TOP BAR -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <button class="btn btn-primary"
+                @onclick="Continue"
+                disabled="@(!CanContinue)">
+            Continue
+        </button>
+
+        <button class="btn btn-success"
+                @onclick="AcceptAll"
+                disabled="@(!FilesInCategory.Any())">
+            Accept All
+        </button>
+    </div>
 
     <h4>Step: @CurrentCategory</h4>
 
@@ -17,82 +30,78 @@
             All files in this category handled.
         </div>
     }
-    else
+    else if (CurrentCategory == MediaMainCategory.Audio)
     {
-        <button class="btn btn-success mb-3" @onclick="AcceptAll">
-            Accept All
-        </button>
+        <div class="d-flex gap-3 flex-wrap mb-3">
 
-        @if (CurrentCategory == MediaMainCategory.Audio)
-        {
-            <div class="d-flex gap-3 flex-wrap mb-3">
-                @foreach (var group in AudioGroups)
-                {
-                    <div class="file-type-box p-2 border" style="width:150px;">
-                        <strong>@group.Key</strong> (@(group.Value.Count()) files)
-                        <div class="mt-2">
-                            @foreach (var file in group.Value)
-                            {
-                                <div class="file-card mb-1" style="border:1px solid #ccc; padding:4px;">
-                                    @file.FileName
-                                    <button class="btn btn-sm btn-success ms-1" @onclick="() => Keep(file)">Keep</button>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
-        }
-        else if (CurrentCategory == MediaMainCategory.Document)
-        {
-            <div class="d-flex gap-2 flex-wrap mb-3">
-                @foreach (var file in FilesInCategory)
-                {
-                    <div class="file-card text-center p-2" style="width:150px; border:1px solid #ccc;">
-                        @file.FileName
-                        <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file)">Keep</button>
-                    </div>
-                }
-            </div>
-        }
-        else if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
-        {
-            @foreach (var yearGroup in YearGroups)
+            @foreach (var group in AudioGroups)
             {
-                <h5>@yearGroup.Key</h5>
-                @foreach (var monthGroup in yearGroup.Value)
-                {
-                    <div class="month-group mb-3 p-2 border">
-                        <strong>@monthGroup.Key</strong> (@(monthGroup.Value.Count()) files)
-                        <button class="btn btn-sm btn-success ms-2" @onclick="() => AcceptAll(monthGroup.Value)">Accept All Month</button>
+                <div class="p-2 border rounded">
+                    <strong>@group.Key</strong> (@group.Value.Count files)
 
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            @foreach (var file in monthGroup.Value)
-                            {
-                                <div class="file-card text-center p-2" style="width:120px; border:1px solid #ccc;">
-                                    @file.FileName
-                                    <button class="btn btn-sm btn-success mt-1" @onclick="() => Keep(file)">Keep</button>
-                                </div>
-                            }
-                        </div>
+                    <div class="d-flex gap-2 flex-wrap mt-2">
+                        @foreach (var file in group.Value)
+                        {
+                            <MediaCard File="file" OnKeep="Keep" />
+                        }
                     </div>
-                }
+                </div>
             }
+        </div>
+    }
+    else if (CurrentCategory == MediaMainCategory.Document)
+    {
+        <div class="d-flex gap-2 flex-wrap mb-3">
+
+            @foreach (var file in FilesInCategory)
+            {
+                <MediaCard File="file" OnKeep="Keep" />
+            }
+
+        </div>
+    }
+    else if (CurrentCategory == MediaMainCategory.Image ||
+             CurrentCategory == MediaMainCategory.Video)
+    {
+        @foreach (var yearGroup in YearGroups)
+        {
+            <div class="mb-4 p-2 border rounded">
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5>@yearGroup.Key</h5>
+
+                    <button class="btn btn-sm btn-success"
+                            @onclick="() => AcceptAll(yearGroup.Value)">
+                        Accept All Year
+                    </button>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-2">
+
+                    @foreach (var file in yearGroup.Value)
+                    {
+                        <MediaCard File="file" OnKeep="Keep" />
+                    }
+
+                </div>
+            </div>
         }
     }
+
 </div>
 
 @code {
+
     [Parameter] public string CategoryString { get; set; } = "audio";
 
     private MediaMainCategory CurrentCategory;
     private List<MediaFile> FilesInCategory = new();
     private Dictionary<string, List<MediaFile>> AudioGroups = new();
-    private Dictionary<int, Dictionary<int, List<MediaFile>>> YearGroups = new();
-
+    private Dictionary<int, List<MediaFile>> YearGroups = new();
     bool CanContinue =>
         !DuplicateService.AllFiles
-            .Any(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial);
+            .Any(f => f.MainCategory == CurrentCategory &&
+                      f.Status == MediaFileStatus.Initial);
 
     protected override void OnInitialized()
     {
@@ -111,7 +120,8 @@
     void LoadFiles()
     {
         FilesInCategory = DuplicateService.AllFiles
-            .Where(f => f.MainCategory == CurrentCategory && f.Status == MediaFileStatus.Initial)
+            .Where(f => f.MainCategory == CurrentCategory &&
+                        f.Status == MediaFileStatus.Initial)
             .ToList();
 
         if (CurrentCategory == MediaMainCategory.Audio)
@@ -121,17 +131,13 @@
                 .OrderBy(g => g.Key)
                 .ToDictionary(g => g.Key, g => g.ToList());
         }
-        else if (CurrentCategory == MediaMainCategory.Image || CurrentCategory == MediaMainCategory.Video)
+        else if (CurrentCategory == MediaMainCategory.Image ||
+                 CurrentCategory == MediaMainCategory.Video)
         {
             YearGroups = FilesInCategory
                 .GroupBy(f => f.Year)
                 .OrderBy(g => g.Key)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.GroupBy(f => f.Month)
-                          .OrderBy(m => m.Key)
-                          .ToDictionary(m => m.Key, m => m.ToList())
-                );
+                .ToDictionary(g => g.Key, g => g.ToList());
         }
     }
 
@@ -155,7 +161,6 @@
             file.Status = MediaFileStatus.ToKeep;
 
         LoadFiles();
-        
     }
 
     void Continue()
