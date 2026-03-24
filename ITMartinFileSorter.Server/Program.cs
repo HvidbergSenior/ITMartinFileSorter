@@ -19,7 +19,6 @@ builder.Services.AddScoped<VideoCategorizer>();
 builder.Services.AddScoped<DocumentCategorizer>();
 
 builder.Services.AddSingleton<DuplicateService>();
-builder.Services.AddScoped<StepService>();
 builder.Services.AddScoped<TripGroupingService>();
 
 builder.Services.AddSingleton<VideoConverterService>();
