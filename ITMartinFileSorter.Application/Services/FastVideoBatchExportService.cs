@@ -1,6 +1,4 @@
-﻿using ITMartinFileSorter.Application.Services;
-
-namespace ITMartinFileSorter.Application.UseCases;
+﻿namespace ITMartinFileSorter.Application.Services;
 
 public class FastVideoBatchExportService
 {
@@ -11,14 +9,37 @@ public class FastVideoBatchExportService
         _converter = converter;
     }
 
-    public async Task ConvertAllVideosAsync(IEnumerable<string> files, string sourceRoot)
+    /// <summary>
+    /// Converts all videos inside the exported "After" folder (recursively)
+    /// </summary>
+    public async Task ConvertAllVideosAsync(string exportRoot)
     {
-        var outputFolder = Path.Combine(sourceRoot, "After", "Videos");
+        if (string.IsNullOrWhiteSpace(exportRoot) || !Directory.Exists(exportRoot))
+            return;
 
-        var tasks = files
+        var videoFiles = Directory
+            .EnumerateFiles(exportRoot, "*.*", SearchOption.AllDirectories)
+            .Where(IsVideoFile)
+            .ToList();
+
+        var tasks = videoFiles
             .Where(_converter.NeedsConversion)
-            .Select(file => _converter.ConvertToMp4FastAsync(file, outputFolder));
+            .Select(file =>
+            {
+                var outputFolder = Path.GetDirectoryName(file)!;
+
+                return _converter.ConvertToMp4FastAsync(file, outputFolder);
+            });
 
         await Task.WhenAll(tasks);
+    }
+
+    private static bool IsVideoFile(string path)
+    {
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+
+        return ext is
+            ".avi" or ".mov" or ".mkv" or ".wmv" or
+            ".flv" or ".m4v" or ".3gp" or ".mpg" or ".mpeg";
     }
 }
