@@ -70,7 +70,7 @@ public class VideoConverterService
     {
         var info = new FileInfo(file);
 
-        if (info.Length < 20_000_000)
+        if (info.Length < 1_000_000)
         {
             Log($"Skip small file: {file}");
             return true;
