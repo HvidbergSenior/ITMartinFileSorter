@@ -23,7 +23,9 @@ public class FastUniversalVideoConverterService
         return ext != ".mp4";
     }
 
-    public async Task<string?> ConvertToMp4FastAsync(string inputPath, string outputFolder)
+    public async Task<string?> ConvertToMp4FastAsync(
+        string inputPath,
+        string outputFolder)
     {
         if (!NeedsConversion(inputPath))
             return null;
@@ -33,7 +35,6 @@ public class FastUniversalVideoConverterService
         var name = Path.GetFileNameWithoutExtension(inputPath);
         var outputPath = Path.Combine(outputFolder, name + ".mp4");
 
-        // ⭐ FAST CPU version (universal compatibility)
         var arguments =
             $"-y -i \"{inputPath}\" " +
             "-c:v libx264 -preset veryfast -crf 23 " +
@@ -47,6 +48,7 @@ public class FastUniversalVideoConverterService
             {
                 FileName = _ffmpegPath,
                 Arguments = arguments,
+                RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
@@ -54,6 +56,20 @@ public class FastUniversalVideoConverterService
         };
 
         process.Start();
+
+        // ⭐ Drain BOTH streams
+        _ = Task.Run(async () =>
+        {
+            while (!process.StandardOutput.EndOfStream)
+                await process.StandardOutput.ReadLineAsync();
+        });
+
+        _ = Task.Run(async () =>
+        {
+            while (!process.StandardError.EndOfStream)
+                await process.StandardError.ReadLineAsync();
+        });
+
         await process.WaitForExitAsync();
 
         return process.ExitCode == 0 ? outputPath : null;

@@ -20,10 +20,8 @@ builder.Services.AddScoped<DocumentCategorizer>();
 
 builder.Services.AddSingleton<DuplicateService>();
 builder.Services.AddScoped<TripGroupingService>();
-
-builder.Services.AddSingleton<VideoConverterService>();
-builder.Services.AddSingleton<MediaServerProOptions>();
-builder.Services.AddSingleton<MediaServerProService>();
+builder.Services.AddScoped<FastUniversalVideoConverterService>();
+builder.Services.AddScoped<FastVideoBatchExportService>();
 builder.Services.AddScoped<ProfessionalOrganizerService>();
 builder.Services.AddScoped<HomeLocationService>();
 builder.Services.AddScoped<JunkDetectionService>();

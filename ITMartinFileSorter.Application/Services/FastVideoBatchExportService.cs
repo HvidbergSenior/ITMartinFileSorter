@@ -4,34 +4,35 @@ public class FastVideoBatchExportService
 {
     private readonly FastUniversalVideoConverterService _converter;
 
-    public FastVideoBatchExportService(FastUniversalVideoConverterService converter)
+    public FastVideoBatchExportService(
+        FastUniversalVideoConverterService converter)
     {
         _converter = converter;
     }
 
-    /// <summary>
-    /// Converts all videos inside the exported "After" folder (recursively)
-    /// </summary>
     public async Task ConvertAllVideosAsync(string exportRoot)
     {
-        if (string.IsNullOrWhiteSpace(exportRoot) || !Directory.Exists(exportRoot))
+        if (string.IsNullOrWhiteSpace(exportRoot) ||
+            !Directory.Exists(exportRoot))
             return;
 
         var videoFiles = Directory
             .EnumerateFiles(exportRoot, "*.*", SearchOption.AllDirectories)
             .Where(IsVideoFile)
+            .Where(_converter.NeedsConversion)
             .ToList();
 
-        var tasks = videoFiles
-            .Where(_converter.NeedsConversion)
-            .Select(file =>
-            {
-                var outputFolder = Path.GetDirectoryName(file)!;
+        Console.WriteLine($"Found {videoFiles.Count} videos to convert");
 
-                return _converter.ConvertToMp4FastAsync(file, outputFolder);
-            });
+        // ⭐ SEQUENTIAL (SAFE)
+        foreach (var file in videoFiles)
+        {
+            var folder = Path.GetDirectoryName(file)!;
 
-        await Task.WhenAll(tasks);
+            Console.WriteLine($"Converting: {file}");
+
+            await _converter.ConvertToMp4FastAsync(file, folder);
+        }
     }
 
     private static bool IsVideoFile(string path)

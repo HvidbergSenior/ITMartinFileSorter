@@ -3,7 +3,7 @@
 @using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
-
+@inject FastVideoBatchExportService FastVideoBatchExportService
 <div class="container mt-4">
 
     <!-- HEADER -->
@@ -161,14 +161,15 @@
 
         try
         {
+            // ⭐ STEP 1 — COPY FILES
             foreach (var file in files)
             {
-                var catFolder = Path.Combine(
+                var categoryFolder = Path.Combine(
                     exportRoot,
                     file.MainCategory.ToString());
 
                 var yearFolder = Path.Combine(
-                    catFolder,
+                    categoryFolder,
                     file.Year.ToString());
 
                 Directory.CreateDirectory(yearFolder);
@@ -177,14 +178,26 @@
                     yearFolder,
                     file.FileName);
 
-                CurrentExportFile = file.FileName;
+                CurrentExportFile = "Copying: " + file.FileName;
 
-                File.Copy(file.WorkingPath, destination, overwrite: true);
+                File.Copy(file.WorkingPath, destination, true);
 
                 ExportedCount++;
-
                 await InvokeAsync(StateHasChanged);
             }
+
+            // ⭐ STEP 2 — CONVERT VIDEOS
+            CurrentExportFile = "Converting videos to MP4...";
+            await InvokeAsync(StateHasChanged);
+
+            await FastVideoBatchExportService
+                .ConvertAllVideosAsync(exportRoot);
+
+            CurrentExportFile = "Export complete ✔";
+        }
+        catch (Exception ex)
+        {
+            CurrentExportFile = "ERROR: " + ex.Message;
         }
         finally
         {
