@@ -10,11 +10,19 @@ public class FastVideoBatchExportService
         _converter = converter;
     }
 
-    public async Task ConvertAllVideosAsync(string exportRoot)
+    public async Task ConvertAllVideosAsync(
+        string exportRoot,
+        Action<int, int, string>? progress = null)
     {
+        Console.WriteLine("[BATCH] ConvertAllVideosAsync called");
+        Console.WriteLine($"[BATCH] Export root: {exportRoot}");
+
         if (string.IsNullOrWhiteSpace(exportRoot) ||
             !Directory.Exists(exportRoot))
+        {
+            Console.WriteLine("[BATCH] Invalid export root");
             return;
+        }
 
         var videoFiles = Directory
             .EnumerateFiles(exportRoot, "*.*", SearchOption.AllDirectories)
@@ -22,17 +30,30 @@ public class FastVideoBatchExportService
             .Where(_converter.NeedsConversion)
             .ToList();
 
-        Console.WriteLine($"Found {videoFiles.Count} videos to convert");
+        int total = videoFiles.Count;
+        int current = 0;
 
-        // ⭐ SEQUENTIAL (SAFE)
+        Console.WriteLine($"[BATCH] Videos found: {total}");
+
         foreach (var file in videoFiles)
         {
+            current++;
+
+            progress?.Invoke(
+                current,
+                total,
+                Path.GetFileName(file));
+
+            Console.WriteLine($"[BATCH] Converting {current}/{total}: {file}");
+
             var folder = Path.GetDirectoryName(file)!;
 
-            Console.WriteLine($"Converting: {file}");
-
             await _converter.ConvertToMp4FastAsync(file, folder);
+
+            Console.WriteLine($"[BATCH] Done file: {file}");
         }
+
+        Console.WriteLine("[BATCH] All conversions done");
     }
 
     private static bool IsVideoFile(string path)

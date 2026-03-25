@@ -26,6 +26,7 @@
   
   <!-- Media temp folder for thumbnails -->
   <ItemGroup>
+    <Folder Include="ffmpeg\" />
     <Folder Include="wwwroot\media_temp\" />
   </ItemGroup>
 
