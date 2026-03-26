@@ -1,6 +1,4 @@
 ﻿@page "/duplicates"
-@using ITMartinFileSorter.Application.Services
-@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 
@@ -8,8 +6,7 @@
 
     <h4>Handle Duplicates</h4>
 
-    <!-- ⭐ TOP TOOLBAR -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between mb-3">
 
         <button class="btn btn-success"
                 @onclick="Continue"
@@ -17,16 +14,13 @@
             Continue
         </button>
 
-        @if (HasDuplicates)
-        {
-            <button class="btn btn-danger"
-                    @onclick="DeleteAllDuplicatesGlobally">
-                Delete All Duplicates (Keep Newest)
-            </button>
-        }
+        <button class="btn btn-danger"
+                @onclick="DeleteAllDuplicatesGlobally">
+            Delete All (Keep Newest)
+        </button>
     </div>
 
-    @if (!HasDuplicates)
+    @if (!DuplicateService.DuplicateGroups.Any())
     {
         <div class="alert alert-success">
             No duplicates found
@@ -34,128 +28,72 @@
     }
     else
     {
-        @foreach (var category in CategoryOrder)
+        @foreach (var group in DuplicateService.CurrentPageGroups)
         {
-            var groups = DuplicateService.AllFiles
-                .Where(f => f.MainCategory == category)
-                .GroupBy(f => f.Hash)
-                .Where(g => g.Count() > 1)
-                .ToList();
+            <div class="border p-2 mb-3">
 
-            if (!groups.Any()) continue;
+                <div class="d-flex gap-2 flex-wrap">
 
-            <div class="mb-4">
-                <h5 style="color:@GetMainColor(category)">@category</h5>
+                    @foreach (var file in group)
+                    {
+                        <div style="width:140px"
+                             class="border p-2 text-center">
 
-                @foreach (var group in groups)
-                {
-                    <div class="d-flex gap-2 flex-wrap mb-2">
-
-                        @foreach (var file in group)
-                        {
-                            <div class="file-card text-center p-2 d-flex flex-column"
-                                 style="
-                                 width:140px;
-                                 height:190px;
-                                 border:2px solid @(GetBorderColor(file));
-                                 border-radius:8px;
-                                 background:#fff;
-                                 box-shadow:0 1px 3px rgba(0,0,0,0.08);
-                                 @(file.Status == MediaFileStatus.ToDelete ? "opacity:0.5;" : "")
-                                 ">
-
-                                <!-- PREVIEW -->
-                                <div style="height:70px; display:flex; align-items:center; justify-content:center;">
-                                    @switch (file.MainCategory)
-                                    {
-                                        case MediaMainCategory.Image:
-                                            <img src="@file.ThumbnailPath"
-                                                 style="max-height:60px; max-width:100%; object-fit:contain;" />
-                                            break;
-
-                                        case MediaMainCategory.Video:
-                                            <video src="@file.WorkingPath"
-                                                   muted preload="metadata"
-                                                   style="max-height:60px; max-width:100%; object-fit:contain;">
-                                            </video>
-                                            break;
-
-                                        case MediaMainCategory.Audio:
-                                            <div style="font-size:28px;">🎵</div>
-                                            break;
-
-                                        case MediaMainCategory.Document:
-                                            <div style="font-size:28px;">📄</div>
-                                            break;
-                                    }
-                                </div>
-
-                                <!-- NAME -->
-                                <div style="
-                                    font-size:0.75em;
-                                    word-break:break-word;
-                                    height:40px;
-                                    overflow:hidden;">
-                                    @file.FileName
-                                </div>
-
-                                <!-- SIZE -->
-                                <div style="font-size:0.65em; color:#666;">
-                                    @FormatSize(file.SizeBytes)
-                                </div>
-
-                                <!-- ACTIONS (pinned bottom) -->
-                                <div class="mt-auto d-flex flex-column gap-1">
-
-                                    @if (file.Status == MediaFileStatus.Initial)
-                                    {
-                                        <button class="btn btn-sm btn-success w-100"
-                                                @onclick="() => Keep(file)">
-                                            Keep
-                                        </button>
-
-                                        <button class="btn btn-sm btn-danger w-100"
-                                                @onclick="() => Delete(file)">
-                                            Delete
-                                        </button>
-                                    }
-                                    else if (file.Status == MediaFileStatus.ToDelete)
-                                    {
-                                        <div style="color:#dc3545; font-size:0.7em;">
-                                            Marked Delete
-                                        </div>
-                                    }
-                                    else if (file.Status == MediaFileStatus.ToKeep)
-                                    {
-                                        <div style="color:#28a745; font-size:0.7em;">
-                                            Marked Keep
-                                        </div>
-                                    }
-                                </div>
+                            <div style="font-size:0.75em">
+                                @file.FileName
                             </div>
-                        }
-                    </div>
 
-                    <button class="btn btn-sm btn-danger mb-3"
-                            @onclick="() => DeleteAllButOne(group)">
-                        Delete All But One (Keep Newest)
-                    </button>
-                }
+                            <div style="font-size:0.7em">
+                                @FormatSize(file.SizeBytes)
+                            </div>
+
+                            @if (file.Status == MediaFileStatus.Initial)
+                            {
+                                <button class="btn btn-sm btn-success w-100"
+                                        @onclick="() => Keep(file)">
+                                    Keep
+                                </button>
+
+                                <button class="btn btn-sm btn-danger w-100"
+                                        @onclick="() => Delete(file)">
+                                    Delete
+                                </button>
+                            }
+                            else
+                            {
+                                <div>@file.Status</div>
+                            }
+                        </div>
+                    }
+
+                </div>
+
+                <button class="btn btn-sm btn-danger mt-2"
+                        @onclick="() => DeleteAllButOne(group)">
+                    Delete All But One
+                </button>
             </div>
         }
-    }
 
-    <!-- BOTTOM CONTINUE -->
-    <button class="btn btn-success mt-3"
-            @onclick="Continue"
-            disabled="@(!AllGroupsHandled)">
-        Continue
-    </button>
+        <!-- PAGINATION -->
+        <div class="d-flex justify-content-center gap-2 mt-3">
 
-    @if (!AllGroupsHandled)
-    {
-        <div class="text-danger mt-2">
-            ⚠ You must handle all duplicate groups
+            <button class="btn btn-secondary"
+                    disabled="@(DuplicateService.CurrentPage == 0)"
+                    @onclick="PrevPage">
+                Previous
+            </button>
+
+            <span>
+                Page @(DuplicateService.CurrentPage + 1)
+                of @DuplicateService.TotalPages
+            </span>
+
+            <button class="btn btn-secondary"
+                    disabled="@(DuplicateService.CurrentPage >= DuplicateService.TotalPages - 1)"
+                    @onclick="NextPage">
+                Next
+            </button>
         </div>
     }
 
@@ -163,38 +101,57 @@
 
 @code {
 
-    readonly MediaMainCategory[] CategoryOrder = new[]
-    {
-        MediaMainCategory.Image,
-        MediaMainCategory.Video,
-        MediaMainCategory.Audio,
-        MediaMainCategory.Document
-    };
-
-    bool HasDuplicates =>
-        DuplicateService.AllFiles.GroupBy(f => f.Hash).Any(g => g.Count() > 1);
-
     bool AllGroupsHandled =>
-        DuplicateService.AllFiles
-            .GroupBy(f => f.Hash)
-            .Where(g => g.Count() > 1)
-            .All(g => g.Count(f => f.Status == MediaFileStatus.ToDelete) == g.Count() - 1);
+        DuplicateService.DuplicateGroups
+            .All(g => g.Count(f => f.Status == MediaFileStatus.ToDelete) == g.Count - 1);
 
-    string GetMainColor(MediaMainCategory main) => main switch
+    void Keep(MediaFile file)
     {
-        MediaMainCategory.Video => "#dc3545",
-        MediaMainCategory.Image => "#28a745",
-        MediaMainCategory.Audio => "#ffc107",
-        MediaMainCategory.Document => "#0d6efd",
-        _ => "#6c757d"
-    };
+        file.Status = MediaFileStatus.ToKeep;
+    }
 
-    string GetBorderColor(MediaFile file) => file.Status switch
+    void Delete(MediaFile file)
     {
-        MediaFileStatus.ToKeep => "#28a745",
-        MediaFileStatus.ToDelete => "#dc3545",
-        _ => "#ddd"
-    };
+        file.Status = MediaFileStatus.ToDelete;
+    }
+
+    void DeleteAllButOne(List<MediaFile> group)
+    {
+        var newest = group.OrderByDescending(f => f.CreatedAt).First();
+
+        foreach (var f in group)
+            f.Status = f == newest
+                ? MediaFileStatus.ToKeep
+                : MediaFileStatus.ToDelete;
+    }
+
+    void DeleteAllDuplicatesGlobally()
+    {
+        foreach (var group in DuplicateService.DuplicateGroups)
+        {
+            var newest = group.OrderByDescending(f => f.CreatedAt).First();
+
+            foreach (var f in group)
+                if (f != newest)
+                    f.Status = MediaFileStatus.ToDelete;
+        }
+    }
+
+    void PrevPage()
+    {
+        DuplicateService.CurrentPage--;
+    }
+
+    void NextPage()
+    {
+        DuplicateService.CurrentPage++;
+    }
+
+    void Continue()
+    {
+        DuplicateService.DuplicatesHandled = true;
+        Navigation.NavigateTo("/");
+    }
 
     string FormatSize(long bytes)
     {
@@ -207,51 +164,5 @@
             len /= 1024;
         }
         return $"{len:0.#} {sizes[order]}";
-    }
-
-    void Keep(MediaFile file)
-    {
-        file.Status = MediaFileStatus.ToKeep;
-        StateHasChanged();
-    }
-
-    void Delete(MediaFile file)
-    {
-        file.Status = MediaFileStatus.ToDelete;
-        StateHasChanged();
-    }
-
-    void DeleteAllButOne(IGrouping<string, MediaFile> group)
-    {
-        var newest = group.OrderByDescending(f => f.CreatedAt).First();
-
-        foreach (var file in group)
-            file.Status = file == newest
-                ? MediaFileStatus.ToKeep
-                : MediaFileStatus.ToDelete;
-
-        StateHasChanged();
-    }
-
-    void DeleteAllDuplicatesGlobally()
-    {
-        foreach (var group in DuplicateService.AllFiles
-                     .GroupBy(f => f.Hash)
-                     .Where(g => g.Count() > 1))
-        {
-            var newest = group.OrderByDescending(f => f.CreatedAt).First();
-
-            foreach (var file in group)
-                if (file != newest)
-                    file.Status = MediaFileStatus.ToDelete;
-        }
-
-        StateHasChanged();
-    }
-
-    void Continue()
-    {
-        DuplicateService.DuplicatesHandled = true;
-        Navigation.NavigateTo("/");
     }
 }

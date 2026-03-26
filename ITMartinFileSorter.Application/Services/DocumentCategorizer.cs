@@ -22,7 +22,5 @@ public class DocumentCategorizer
 
         // DynamicFolder is always relative and clean
         file.DynamicFolder = Path.Combine("Documents", file.SubCategory.ToString());
-
-        Console.WriteLine($"[DEBUG] Categorized {file.FileName} -> Main: {file.MainCategory}, Sub: {file.SubCategory}, DynamicFolder: {file.DynamicFolder}");
     }
 }

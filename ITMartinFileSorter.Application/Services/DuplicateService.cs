@@ -2,8 +2,6 @@
 using ITMartinFileSorter.Domain.Entities;
 using ITMartinFileSorter.Domain.Enums;
 
-namespace ITMartinFileSorter.Application.Services;
-
 public class DuplicateService
 {
     public string FolderPath { get; set; } = "";
@@ -12,23 +10,53 @@ public class DuplicateService
 
     public List<List<MediaFile>> DuplicateGroups { get; set; } = new();
 
-    // Track if duplicates were handled
     public bool DuplicatesHandled { get; set; } = false;
+
+    public bool IsProcessing { get; set; }
+    public int ProcessedFiles { get; set; }
+    public int TotalFiles { get; set; }
 
     public HashSet<MediaMainCategory> CompletedCategories { get; set; } = new();
 
-    // ⭐ NEW: Grouping choice from user
     public GroupingOptions? GroupingOptions { get; set; }
 
     public event Action? OnChange;
-
     public void NotifyStateChanged() => OnChange?.Invoke();
 
-    // ⭐ Helper: Files selected for export
     public IEnumerable<MediaFile> FilesToExport =>
         AllFiles.Where(f => f.Status == MediaFileStatus.ToKeep);
 
-    // ⭐ Reset state when scanning new folder
+    // ===== PAGING =====
+
+    public int CurrentPage { get; set; } = 0;
+    public int PageSize { get; set; } = 20;
+
+    public int TotalPages =>
+        (int)Math.Ceiling((double)DuplicateGroups.Count / PageSize);
+
+    public IEnumerable<List<MediaFile>> CurrentPageGroups =>
+        DuplicateGroups
+            .Skip(CurrentPage * PageSize)
+            .Take(PageSize);
+
+    // ===== BUILD DUPLICATES =====
+
+    public void BuildDuplicateGroups()
+    {
+        DuplicateGroups = AllFiles
+            .GroupBy(f => f.Hash)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.ToList())
+            .OrderByDescending(g => g.Count)
+            .ToList();
+
+        CurrentPage = 0;
+
+        NotifyStateChanged();
+    }
+
+    // ===== RESET =====
+
     public void Reset()
     {
         AllFiles.Clear();
@@ -36,17 +64,15 @@ public class DuplicateService
         CompletedCategories.Clear();
         GroupingOptions = null;
         DuplicatesHandled = false;
-        FolderPath = "";
-
-        NotifyStateChanged();
+        CurrentPage = 0;
     }
 
-    // ⭐ Debug helper
-    public void PrintFiles(string header = "AllFiles")
-    {
-        Console.WriteLine($"[DEBUG] {header} ({AllFiles.Count} files):");
+    // ===== CANCELLATION =====
 
-        foreach (var f in AllFiles)
-            Console.WriteLine($"    {f.FileName} | {f.MainCategory} | {f.Status}");
+    public CancellationTokenSource? Cancellation { get; set; }
+
+    public void Cancel()
+    {
+        Cancellation?.Cancel();
     }
 }

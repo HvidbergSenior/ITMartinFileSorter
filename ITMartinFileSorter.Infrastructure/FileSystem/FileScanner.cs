@@ -35,6 +35,11 @@ public sealed class FileScanner : IFileScanner
 
     public IEnumerable<MediaFile> ScanFolder(string rootPath, Action<int, string>? onProgress = null)
     {
+        // ⭐ CRITICAL SAFETY CHECK
+        if (string.IsNullOrWhiteSpace(rootPath) ||
+            !Directory.Exists(rootPath))
+            yield break;
+
         int index = 0;
 
         foreach (var file in Directory.EnumerateFiles(rootPath, "*.*", _options))
@@ -42,7 +47,16 @@ public sealed class FileScanner : IFileScanner
             index++;
             onProgress?.Invoke(index, file);
 
-            var extension = Path.GetExtension(file);
+            string extension;
+
+            try
+            {
+                extension = Path.GetExtension(file);
+            }
+            catch
+            {
+                continue;
+            }
 
             var isImage = ImageExtensions.Contains(extension);
             var isVideo = VideoExtensions.Contains(extension);
@@ -53,22 +67,28 @@ public sealed class FileScanner : IFileScanner
                 continue;
 
             FileInfo info;
-            try { info = new FileInfo(file); }
-            catch { continue; }
 
-            var type = isImage ? MediaType.Image
-                      : isVideo ? MediaType.Video
-                      : isAudio ? MediaType.Audio
-                      : MediaType.Document;
+            try
+            {
+                info = new FileInfo(file);
+            }
+            catch
+            {
+                continue; // skip broken files
+            }
 
-            var mediaFile = new MediaFile(
+            MediaType type =
+                isImage ? MediaType.Image :
+                isVideo ? MediaType.Video :
+                isAudio ? MediaType.Audio :
+                MediaType.Document;
+
+            yield return new MediaFile(
                 fullPath: file,
                 createdAt: info.LastWriteTimeUtc,
                 type: type,
                 sizeBytes: info.Length
             );
-
-            yield return mediaFile;
         }
     }
 }

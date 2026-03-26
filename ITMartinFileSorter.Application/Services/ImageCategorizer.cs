@@ -18,7 +18,5 @@ public class ImageCategorizer
             file.SubCategory = MediaSubCategory.OtherImage;
 
         file.DynamicFolder = Path.Combine("Images", file.SubCategory.ToString(), yearMonth);
-
-        Console.WriteLine($"[DEBUG] Categorized {file.FileName} -> Main: {file.MainCategory}, Sub: {file.SubCategory}, DynamicFolder: {file.DynamicFolder}");
     }
 }

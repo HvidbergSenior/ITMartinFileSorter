@@ -1,3 +1,4 @@
+using ITMartinFileSorter.Application.Progress;
 using ITMartinFileSorter.Application.Services;
 using ITMartinFileSorter.Domain.Interfaces;
 using ITMartinFileSorter.Infrastructure.FileSystem;
@@ -26,6 +27,7 @@ builder.Services.AddScoped<ProfessionalOrganizerService>();
 builder.Services.AddScoped<HomeLocationService>();
 builder.Services.AddScoped<JunkDetectionService>();
 builder.Services.AddScoped<EventDetectionService>();
+builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<ArchivePathBuilder>();
 builder.Services.AddSingleton(new VideoThumbnailService(
     Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "media_temp")

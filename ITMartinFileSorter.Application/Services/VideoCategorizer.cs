@@ -32,8 +32,5 @@ public class VideoCategorizer
             "Videos",
             file.SubCategory.ToString(),
             yearMonth);
-
-        Console.WriteLine(
-            $"[DEBUG] Categorized {file.FileName} -> Main: {file.MainCategory}, Sub: {file.SubCategory}, Folder: {file.DynamicFolder}");
     }
 }
