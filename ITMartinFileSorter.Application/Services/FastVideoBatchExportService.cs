@@ -61,11 +61,6 @@ public class FastVideoBatchExportService
                 var output = await _converter.ConvertToMp4FastAsync(file, folder);
 
                 Console.WriteLine($"[BATCH] Done file: {file}");
-
-                if (output != null && File.Exists(output))
-                {
-                    File.Delete(file);
-                }
             }
             catch (Exception ex)
             {

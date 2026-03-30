@@ -102,6 +102,21 @@ public class FastUniversalVideoConverterService
     File.SetCreationTime(outputPath, created);
     File.SetLastWriteTime(outputPath, modified);
 
+// DELETE ORIGINAL AFTER SUCCESS
+    if (File.Exists(outputPath) &&
+        !inputPath.Equals(outputPath, StringComparison.OrdinalIgnoreCase))
+    {
+        try
+        {
+            File.Delete(inputPath);
+            Console.WriteLine($"[ORIGINAL DELETED] {inputPath}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DELETE FAILED] {ex}");
+        }
+    }
+
     return outputPath;
 }
 }

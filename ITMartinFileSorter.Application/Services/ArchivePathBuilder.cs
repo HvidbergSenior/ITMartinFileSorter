@@ -21,7 +21,7 @@ public class ArchivePathBuilder
 
         var trips = options.UseTripFolders
             ? _tripService.CreateTrips(files)
-            : new();
+            : new List<TripGroup>();
 
         foreach (var file in files)
         {
@@ -47,12 +47,12 @@ public class ArchivePathBuilder
         {
             case MediaMainCategory.Image:
                 parts.Add("Photos");
-                AddPhotoSubfolders(file, trips, options, parts);
+                AddSubfolders(file, trips, options, parts);
                 break;
 
             case MediaMainCategory.Video:
                 parts.Add("Videos");
-                AddVideoSubfolders(file, trips, options, parts);
+                AddSubfolders(file, trips, options, parts);
                 break;
 
             case MediaMainCategory.Document:
@@ -69,25 +69,7 @@ public class ArchivePathBuilder
         return Path.Combine(parts.ToArray());
     }
 
-    private void AddPhotoSubfolders(
-        MediaFile file,
-        List<TripGroup> trips,
-        ArchiveOptions options,
-        List<string> parts)
-    {
-        var trip = trips.FirstOrDefault(t => t.Files.Contains(file));
-
-        if (trip != null)
-        {
-            parts.Add("Trips");
-            parts.Add(trip.Name);
-            return;
-        }
-
-        AddStandardSubfolders(file, options, parts);
-    }
-
-    private void AddVideoSubfolders(
+    private void AddSubfolders(
         MediaFile file,
         List<TripGroup> trips,
         ArchiveOptions options,
@@ -119,10 +101,7 @@ public class ArchivePathBuilder
             parts.Add(year.ToString());
 
         if (options.UseMonthFolders)
-        {
-            parts.Add(
-                $"{month:D2} {new DateTime(year, month, 1):MMMM}");
-        }
+            parts.Add($"{month:D2} {new DateTime(year, month, 1):MMMM}");
 
         if (options.UseTypeFolders)
             parts.Add(file.MainCategory.ToString());

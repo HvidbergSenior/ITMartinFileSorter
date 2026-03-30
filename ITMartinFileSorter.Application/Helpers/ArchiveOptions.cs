@@ -8,7 +8,7 @@ public class ArchiveOptions
 
     public bool UseTypeFolders { get; set; } = false;
 
-    public bool UseTripFolders { get; set; } = false;
+    public bool UseTripFolders { get; set; } = true;
 
     public bool RenameFiles { get; set; } = true;
 
