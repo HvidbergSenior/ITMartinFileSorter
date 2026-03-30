@@ -24,4 +24,20 @@ public static class ImageMetadataHelper
             return null;
         }
     }
+    public static DateTime GetBestDate(string path)
+    {
+        // 1. Try EXIF
+        var exifDate = GetCreationTime(path);
+        if (exifDate != null)
+            return exifDate.Value;
+
+        // 2. Fallback to file system (NOT creation time)
+        var modified = File.GetLastWriteTime(path);
+
+        if (modified.Year > 2000)
+            return modified;
+
+        // 3. Last fallback
+        return DateTime.Now;
+    }
 }

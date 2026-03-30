@@ -133,105 +133,142 @@
     void GoBack() => Navigation.NavigateTo("/");
 
     async Task StartExport()
+{
+    var files = DuplicateService.AllFiles
+        .Where(f => f.Status == MediaFileStatus.ToKeep)
+        .ToList();
+
+    if (!files.Any())
+        return;
+
+    var exportRoot = Path.Combine(
+        DuplicateService.FolderPath,
+        "Exported");
+
+    Directory.CreateDirectory(exportRoot);
+
+    IsExporting = true;
+    ExportedCount = 0;
+    TotalToExport = files.Count;
+    CurrentStage = "Copying files...";
+
+    await InvokeAsync(StateHasChanged);
+
+    try
     {
-        var files = DuplicateService.AllFiles
-            .Where(f => f.Status == MediaFileStatus.ToKeep)
+        // ===== COPY PHASE =====
+
+        foreach (var file in files)
+        {
+            CurrentExportFile = file.FileName;
+
+            var categoryFolder = Path.Combine(
+                exportRoot,
+                file.MainCategory.ToString());
+
+            var yearFolder = Path.Combine(
+                categoryFolder,
+                file.Year.ToString());
+
+            Directory.CreateDirectory(yearFolder);
+
+            var destination = Path.Combine(
+                yearFolder,
+                file.FileName);
+
+            using var source = new FileStream(
+                file.WorkingPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                81920,
+                true);
+
+            using var dest = new FileStream(
+                destination,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                81920,
+                true);
+
+            await source.CopyToAsync(dest);
+
+            var created = File.GetCreationTime(file.WorkingPath);
+            var modified = File.GetLastWriteTime(file.WorkingPath);
+
+            if (created.Year < 2000)
+                created = modified;
+
+            File.SetCreationTime(destination, created);
+            File.SetLastWriteTime(destination, modified);
+
+            ExportedCount++;
+
+            if (ExportedCount % 10 == 0)
+                await InvokeAsync(StateHasChanged);
+        }
+
+        // ===== DEBUG: WHAT DID WE COPY =====
+
+        Console.WriteLine("===== DEBUG: EXPORT CONTENT =====");
+
+        var allFiles = Directory.GetFiles(exportRoot, "*.*", SearchOption.AllDirectories);
+
+        Console.WriteLine($"Total files in export: {allFiles.Length}");
+
+        foreach (var f in allFiles.Take(20))
+        {
+            Console.WriteLine($"[EXPORTED FILE] {f}");
+        }
+
+        var videoCandidates = allFiles
+            .Where(f =>
+            {
+                var ext = Path.GetExtension(f).ToLowerInvariant();
+                return ext is ".avi" or ".mov" or ".mkv" or ".wmv" or
+                       ".flv" or ".m4v" or ".3gp" or ".mpg" or ".mpeg";
+            })
             .ToList();
 
-        if (!files.Any())
-            return;
+        Console.WriteLine($"Video candidates found: {videoCandidates.Count}");
 
-        var exportRoot = Path.Combine(
-            DuplicateService.FolderPath,
-            "Exported");
+        foreach (var v in videoCandidates.Take(20))
+        {
+            Console.WriteLine($"[VIDEO] {v}");
+        }
 
-        Directory.CreateDirectory(exportRoot);
+        // ===== VIDEO CONVERSION PHASE =====
 
-        IsExporting = true;
+        CurrentStage = "Converting videos...";
         ExportedCount = 0;
-        TotalToExport = files.Count;
-        CurrentStage = "Copying files...";
+        TotalToExport = 0;
 
         await InvokeAsync(StateHasChanged);
 
-        try
-        {
-            // ===== COPY PHASE =====
-
-            foreach (var file in files)
+        await FastVideoBatchExportService.ConvertAllVideosAsync(
+            exportRoot,
+            (current, total, name) =>
             {
-                CurrentExportFile = file.FileName;
+                ExportedCount = current;
+                TotalToExport = total;
+                CurrentExportFile = name;
 
-                var categoryFolder = Path.Combine(
-                    exportRoot,
-                    file.MainCategory.ToString());
+                InvokeAsync(StateHasChanged);
+            });
 
-                var yearFolder = Path.Combine(
-                    categoryFolder,
-                    file.Year.ToString());
-
-                Directory.CreateDirectory(yearFolder);
-
-                var destination = Path.Combine(
-                    yearFolder,
-                    file.FileName);
-
-                // ⭐ Async copy (non-blocking)
-                using var source = new FileStream(
-                    file.WorkingPath,
-                    FileMode.Open,
-                    FileAccess.Read,
-                    FileShare.Read,
-                    81920,
-                    true);
-
-                using var dest = new FileStream(
-                    destination,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None,
-                    81920,
-                    true);
-
-                await source.CopyToAsync(dest);
-
-                ExportedCount++;
-
-                if (ExportedCount % 10 == 0)
-                    await InvokeAsync(StateHasChanged);
-            }
-
-            // ===== VIDEO CONVERSION PHASE =====
-
-            CurrentStage = "Converting videos...";
-            ExportedCount = 0;
-            TotalToExport = 0;
-
-            await InvokeAsync(StateHasChanged);
-
-            await FastVideoBatchExportService.ConvertAllVideosAsync(
-                exportRoot,
-                (current, total, name) =>
-                {
-                    ExportedCount = current;
-                    TotalToExport = total;
-                    CurrentExportFile = name;
-
-                    InvokeAsync(StateHasChanged);
-                });
-
-            CurrentStage = "Export complete ✔";
-            CurrentExportFile = "";
-        }
-        catch (Exception ex)
-        {
-            CurrentStage = "ERROR";
-            CurrentExportFile = ex.Message;
-        }
-        finally
-        {
-            IsExporting = false;
-            await InvokeAsync(StateHasChanged);
-        }
+        CurrentStage = "Export complete ✔";
+        CurrentExportFile = "";
     }
+    catch (Exception ex)
+    {
+        CurrentStage = "ERROR";
+        CurrentExportFile = ex.ToString(); // 👈 show full error
+    }
+    finally
+    {
+        IsExporting = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}
 }

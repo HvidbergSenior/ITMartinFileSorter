@@ -14,8 +14,8 @@ public class FastVideoBatchExportService
         string exportRoot,
         Action<int, int, string>? progress = null)
     {
-        Console.WriteLine("[BATCH] ConvertAllVideosAsync called");
-        Console.WriteLine($"[BATCH] Export root: {exportRoot}");
+        Console.WriteLine("===== DEBUG: BATCH START =====");
+        Console.WriteLine($"Export root: {exportRoot}");
 
         if (string.IsNullOrWhiteSpace(exportRoot) ||
             !Directory.Exists(exportRoot))
@@ -24,38 +24,65 @@ public class FastVideoBatchExportService
             return;
         }
 
-        var videoFiles = Directory
+        var allFiles = Directory
             .EnumerateFiles(exportRoot, "*.*", SearchOption.AllDirectories)
+            .ToList();
+
+        Console.WriteLine($"Total files found: {allFiles.Count}");
+
+        foreach (var f in allFiles.Take(20))
+        {
+            Console.WriteLine($"[BATCH FILE] {f}");
+        }
+
+        var videoFiles = allFiles
             .Where(IsVideoFile)
             .Where(_converter.NeedsConversion)
             .ToList();
 
+        Console.WriteLine($"[BATCH] Videos after filter: {videoFiles.Count}");
+
+        foreach (var v in videoFiles.Take(20))
+        {
+            Console.WriteLine($"[BATCH VIDEO] {v}");
+        }
+
         int total = videoFiles.Count;
         int current = 0;
 
-        Console.WriteLine($"[BATCH] Videos found: {total}");
-
         foreach (var file in videoFiles)
         {
-            current++;
-
-            progress?.Invoke(
-                current,
-                total,
-                Path.GetFileName(file));
-
-            Console.WriteLine($"[BATCH] Converting {current}/{total}: {file}");
+            Console.WriteLine($"[BATCH] Converting: {file}");
 
             var folder = Path.GetDirectoryName(file)!;
 
-            await _converter.ConvertToMp4FastAsync(file, folder);
+            try
+            {
+                var output = await _converter.ConvertToMp4FastAsync(file, folder);
 
-            Console.WriteLine($"[BATCH] Done file: {file}");
+                Console.WriteLine($"[BATCH] Done file: {file}");
+
+                if (output != null && File.Exists(output))
+                {
+                    File.Delete(file);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] {file}: {ex}");
+                throw; // 👈 IMPORTANT
+            }
+
+            var done = Interlocked.Increment(ref current);
+
+            progress?.Invoke(
+                done,
+                total,
+                Path.GetFileName(file));
         }
 
         Console.WriteLine("[BATCH] All conversions done");
     }
-
     private static bool IsVideoFile(string path)
     {
         var ext = Path.GetExtension(path).ToLowerInvariant();

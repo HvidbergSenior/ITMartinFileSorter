@@ -313,8 +313,11 @@
                 file.WorkingPath = file.FullPath;
                 file.Status = MediaFileStatus.Initial;
 
-                MediaCategorizer.Categorize(file);
+// ⭐ FIX: use real date
+                var bestDate = ImageMetadataHelper.GetBestDate(file.FullPath);
+                file.Year = bestDate.Year;
 
+                MediaCategorizer.Categorize(file);
                 Progress.Increment();
 
                 prepCount++;
