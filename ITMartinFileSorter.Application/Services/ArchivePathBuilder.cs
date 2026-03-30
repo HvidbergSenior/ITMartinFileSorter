@@ -57,10 +57,12 @@ public class ArchivePathBuilder
 
             case MediaMainCategory.Document:
                 parts.Add("Documents");
+                AddStandardSubfolders(file, options, parts);
                 break;
 
             case MediaMainCategory.Audio:
                 parts.Add("Audio");
+                AddStandardSubfolders(file, options, parts);
                 break;
         }
 
@@ -82,12 +84,7 @@ public class ArchivePathBuilder
             return;
         }
 
-        if (options.UseYearFolders)
-        {
-            parts.Add("By Year");
-            parts.Add(file.Year.ToString());
-            parts.Add($"{file.Year}-{file.Month:D2}");
-        }
+        AddStandardSubfolders(file, options, parts);
     }
 
     private void AddVideoSubfolders(
@@ -105,12 +102,29 @@ public class ArchivePathBuilder
             return;
         }
 
-        parts.Add("Home Videos");
+        AddStandardSubfolders(file, options, parts);
+    }
+
+    private void AddStandardSubfolders(
+        MediaFile file,
+        ArchiveOptions options,
+        List<string> parts)
+    {
+        var bestDate = ImageMetadataHelper.GetBestDate(file.FullPath);
+
+        var year = bestDate.Year;
+        var month = bestDate.Month;
 
         if (options.UseYearFolders)
+            parts.Add(year.ToString());
+
+        if (options.UseMonthFolders)
         {
-            parts.Add(file.Year.ToString());
-            parts.Add($"{file.Year}-{file.Month:D2}");
+            parts.Add(
+                $"{month:D2} {new DateTime(year, month, 1):MMMM}");
         }
+
+        if (options.UseTypeFolders)
+            parts.Add(file.MainCategory.ToString());
     }
 }

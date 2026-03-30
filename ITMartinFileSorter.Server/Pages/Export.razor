@@ -162,20 +162,41 @@
         {
             CurrentExportFile = file.FileName;
 
-            var categoryFolder = Path.Combine(
+            var archiveOptions = new ArchiveOptions
+            {
+                UseYearFolders = true,
+                UseMonthFolders = true,
+                UseTypeFolders = false,
+                RenameFiles = true,
+                RenameStrategy = RenameStrategy.AlbumStyle
+            };
+
+            var relativePath = new ArchivePathBuilder(
+                    new TripGroupingService())
+                .BuildStructure(new[] { file }, archiveOptions)
+                .Keys
+                .First();
+
+            var targetFolder = Path.Combine(
                 exportRoot,
-                file.MainCategory.ToString());
+                relativePath);
 
-            var yearFolder = Path.Combine(
-                categoryFolder,
-                file.Year.ToString());
+            Directory.CreateDirectory(targetFolder);
 
-            Directory.CreateDirectory(yearFolder);
+            var newName = archiveOptions.RenameFiles
+                ? FileRenameService.BuildName(
+                    file,
+                    ExportedCount + 1,
+                    archiveOptions.RenameStrategy)
+                : file.FileName;
+
+            newName = AlbumStyleNameBuilder.EnsureUnique(
+                targetFolder,
+                newName);
 
             var destination = Path.Combine(
-                yearFolder,
-                file.FileName);
-
+                targetFolder,
+                newName);
             using var source = new FileStream(
                 file.WorkingPath,
                 FileMode.Open,

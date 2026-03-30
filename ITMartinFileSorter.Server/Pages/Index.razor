@@ -314,8 +314,15 @@
                 file.Status = MediaFileStatus.Initial;
 
 // ⭐ FIX: use real date
-                var bestDate = ImageMetadataHelper.GetBestDate(file.FullPath);
+                var bestDate =
+                    file.MainCategory == MediaMainCategory.Video
+                        ? VideoMetadataHelper.GetCreationTime(file.FullPath)
+                          ?? ImageMetadataHelper.GetBestDate(file.FullPath)
+                        : ImageMetadataHelper.GetBestDate(file.FullPath);
+
                 file.Year = bestDate.Year;
+                file.Month = bestDate.Month;
+                file.CreatedAt = bestDate;
 
                 MediaCategorizer.Categorize(file);
                 Progress.Increment();
