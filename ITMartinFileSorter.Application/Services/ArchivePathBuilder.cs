@@ -75,16 +75,43 @@ public class ArchivePathBuilder
         ArchiveOptions options,
         List<string> parts)
     {
+        // always add year + month
+        AddStandardSubfolders(file, options, parts);
+
         var trip = trips.FirstOrDefault(t => t.Files.Contains(file));
 
         if (trip != null)
         {
-            parts.Add("Trips");
             parts.Add(trip.Name);
             return;
         }
 
-        AddStandardSubfolders(file, options, parts);
+        // screenshots
+        if (new JunkDetectionService().IsScreenshot(file))
+        {
+            parts.Add("Screenshots");
+            return;
+        }
+
+        // use file location if available
+        if (!string.IsNullOrWhiteSpace(file.Location))
+        {
+            parts.Add(file.Location);
+            return;
+        }
+
+        // fallback by GPS
+        var location = _tripService.GetSingleFileLocation(file);
+
+        if (!string.IsNullOrWhiteSpace(location) &&
+            location != "Unknown")
+        {
+            parts.Add(location);
+            return;
+        }
+
+        // final fallback
+        parts.Add("Mixed");
     }
 
     private void AddStandardSubfolders(
@@ -101,9 +128,23 @@ public class ArchivePathBuilder
             parts.Add(year.ToString());
 
         if (options.UseMonthFolders)
-            parts.Add($"{month:D2} {new DateTime(year, month, 1):MMMM}");
+        {
+            var danishCulture = new System.Globalization.CultureInfo("da-DK");
+
+            var monthName = new DateTime(year, month, 1)
+                .ToString("MMMM", danishCulture);
+
+            monthName = char.ToUpper(monthName[0]) + monthName[1..];
+
+            parts.Add($"{year} {monthName}");
+        }
 
         if (options.UseTypeFolders)
             parts.Add(file.MainCategory.ToString());
+    }
+    
+    private bool IsHomeLocation(string tripName)
+    {
+        return tripName.Contains("Aarhus", StringComparison.OrdinalIgnoreCase);
     }
 }

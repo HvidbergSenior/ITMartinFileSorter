@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Globalization;
+using System.Text.RegularExpressions;
 using ITMartinFileSorter.Application.Helpers;
 using ITMartinFileSorter.Domain.Entities;
 
@@ -32,7 +33,6 @@ public class TripGroupingService
 
             var gap = current.CreatedAt - previous.CreatedAt;
 
-            // ⭐ up to 7 days still same trip
             if (gap.TotalDays <= 7)
             {
                 currentTrip.Add(current);
@@ -62,15 +62,44 @@ public class TripGroupingService
             Files = files,
             StartDate = start,
             EndDate = end,
-            Name = $"{start:yyyy-MM-dd} to {end:yyyy-MM-dd} - {location}"
+            Name = BuildTripFolderName(start, end, location)
         };
+    }
+
+    private string BuildTripFolderName(
+        DateTime start,
+        DateTime end,
+        string location)
+    {
+        var culture = new CultureInfo("da-DK");
+
+        var startMonth = start.ToString("MMMM", culture);
+        var endMonth = end.ToString("MMMM", culture);
+
+        startMonth =
+            char.ToUpper(startMonth[0]) +
+            startMonth[1..];
+
+        endMonth =
+            char.ToUpper(endMonth[0]) +
+            endMonth[1..];
+
+        var datePart =
+            $"{start.Day}{startMonth}-{end.Day}{endMonth}";
+
+        if (!string.IsNullOrWhiteSpace(location) &&
+            location != "Unknown")
+        {
+            return $"{datePart} {location}";
+        }
+
+        return datePart;
     }
 
     private string GetTripLocation(List<MediaFile> files)
     {
         Console.WriteLine("===== TRIP LOCATION DEBUG =====");
 
-        // ⭐ GPS ALWAYS WINS
         foreach (var file in files)
         {
             var gpsLocation = GetGpsLocation(file);
@@ -78,12 +107,13 @@ public class TripGroupingService
             if (!string.IsNullOrWhiteSpace(gpsLocation) &&
                 gpsLocation != "Unknown")
             {
-                Console.WriteLine($"[TRIP LOCATION FROM GPS] {gpsLocation}");
+                Console.WriteLine(
+                    $"[TRIP LOCATION FROM GPS] {gpsLocation}");
+
                 return gpsLocation;
             }
         }
 
-        // ⭐ FALLBACK TO SOURCE FOLDER
         var first = files.FirstOrDefault();
 
         if (first != null)
@@ -91,15 +121,17 @@ public class TripGroupingService
             var folder = Path.GetFileName(
                 Path.GetDirectoryName(first.FullPath));
 
-            Console.WriteLine($"[FOLDER FALLBACK RAW] {folder}");
+            Console.WriteLine(
+                $"[FOLDER FALLBACK RAW] {folder}");
 
             var cleaned = Regex.Replace(
                 folder ?? "",
                 @"^\d{4}-\d{2}-\d{2}\s*",
-                ""
-            ).Trim();
+                "")
+                .Trim();
 
-            Console.WriteLine($"[FOLDER FALLBACK CLEAN] {cleaned}");
+            Console.WriteLine(
+                $"[FOLDER FALLBACK CLEAN] {cleaned}");
 
             if (!string.IsNullOrWhiteSpace(cleaned))
                 return cleaned;
@@ -112,101 +144,65 @@ public class TripGroupingService
     {
         var coords = GpsHelper.GetCoordinates(file.FullPath);
 
+        Console.WriteLine("===== GPS DEBUG =====");
+        Console.WriteLine($"[FILE] {file.FileName}");
+        Console.WriteLine($"[PATH] {file.FullPath}");
+
         if (coords == null)
+        {
+            Console.WriteLine("[NO GPS FOUND]");
             return "Unknown";
+        }
 
         var (lat, lng) = coords.Value;
 
-        Console.WriteLine($"[GPS COORDS] {lat}, {lng}");
+        Console.WriteLine($"[LAT] {lat}");
+        Console.WriteLine($"[LNG] {lng}");
 
-        // ===== DENMARK CITIES =====
-
+        // ===== DENMARK =====
         if (IsNear(lat, lng, 56.1629, 10.2039, 25))
+        {
+            Console.WriteLine("[MATCH] Aarhus");
             return "Aarhus";
+        }
 
         if (IsNear(lat, lng, 55.6761, 12.5683, 25))
+        {
+            Console.WriteLine("[MATCH] Copenhagen");
             return "Copenhagen";
+        }
 
-        if (IsNear(lat, lng, 55.4038, 10.4024, 20))
-            return "Odense";
-
-        if (IsNear(lat, lng, 57.0488, 9.9217, 20))
+        if (IsNear(lat, lng, 57.0488, 9.9217, 25))
+        {
+            Console.WriteLine("[MATCH] Aalborg");
             return "Aalborg";
+        }
 
-        if (IsNear(lat, lng, 55.4765, 8.4594, 20))
-            return "Esbjerg";
-
-        if (IsNear(lat, lng, 56.4606, 10.0364, 20))
-            return "Randers";
-
-        if (IsNear(lat, lng, 55.7093, 9.5364, 20))
-            return "Vejle";
-
-        if (IsNear(lat, lng, 55.6419, 12.0878, 20))
-            return "Roskilde";
-
-        // ===== COUNTRIES =====
-
-        // Denmark
-        if (lat >= 54.5 && lat <= 58.0 &&
-            lng >= 7.5 && lng <= 15.5)
-            return "Denmark";
-
-        // Sweden
-        if (lat >= 55.0 && lat <= 69.0 &&
-            lng >= 11.0 && lng <= 24.5)
-            return "Sweden";
-
-        // Norway
-        if (lat >= 57.0 && lat <= 71.5 &&
-            lng >= 4.0 && lng <= 31.5)
-            return "Norway";
-
-        // Germany
-        if (lat >= 47.0 && lat <= 55.5 &&
-            lng >= 5.0 && lng <= 15.5)
-            return "Germany";
-
-        // Netherlands
-        if (lat >= 50.5 && lat <= 53.8 &&
-            lng >= 3.0 && lng <= 7.5)
-            return "Netherlands";
-
-        // Belgium
-        if (lat >= 49.5 && lat <= 51.6 &&
-            lng >= 2.5 && lng <= 6.5)
-            return "Belgium";
-
-        // France
+        // ===== FRANCE =====
         if (lat >= 42.0 && lat <= 51.5 &&
             lng >= -5.5 && lng <= 8.5)
+        {
+            Console.WriteLine("[MATCH] France");
             return "France";
+        }
 
-        // Italy
-        if (lat >= 36.0 && lat <= 47.5 &&
-            lng >= 6.0 && lng <= 19.0)
-            return "Italy";
+        // ===== AUSTRIA =====
+        if (lat >= 46.0 && lat <= 49.2 &&
+            lng >= 9.0 && lng <= 17.5)
+        {
+            Console.WriteLine("[MATCH] Austria");
+            return "Austria";
+        }
 
-        // Spain
-        if (lat >= 36.0 && lat <= 43.8 &&
-            lng >= -9.5 && lng <= 3.5)
-            return "Spain";
-
-        // Greece
-        if (lat >= 34.0 && lat <= 42.0 &&
-            lng >= 19.0 && lng <= 29.0)
-            return "Greece";
-
-        // Thailand
+        // ===== THAILAND =====
         if (lat >= 5.5 && lat <= 20.5 &&
             lng >= 97.0 && lng <= 105.6)
+        {
+            Console.WriteLine("[MATCH] Thailand");
             return "Thailand";
+        }
 
-        // USA
-        if (lat >= 24.0 && lat <= 49.5 &&
-            lng >= -125.0 && lng <= -66.0)
-            return "USA";
-
+        Console.WriteLine("[MATCH] Abroad");
         return "Abroad";
     }
 
@@ -241,5 +237,10 @@ public class TripGroupingService
     private double ToRad(double angle)
     {
         return angle * Math.PI / 180;
+    }
+
+    public string GetSingleFileLocation(MediaFile file)
+    {
+        return GetGpsLocation(file);
     }
 }

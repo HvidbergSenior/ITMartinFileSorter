@@ -1,4 +1,5 @@
-﻿@using ITMartinFileSorter.Application.Services
+﻿@using System.Globalization
+@using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 
@@ -17,12 +18,13 @@
                             f.Status == MediaFileStatus.ToKeep)
                 .ToList();
 
-            if (!kept.Any()) continue;
+            if (!kept.Any())
+                continue;
 
             <div class="mb-4">
 
                 <!-- CATEGORY HEADER -->
-                <div class="d-flex align-items-center gap-2 mb-1"
+                <div class="d-flex align-items-center gap-2 mb-2"
                      style="font-weight:600; color:@GetCategoryColor(cat); font-size:1.05rem;">
 
                     <span>@GetCategoryIcon(cat)</span>
@@ -30,29 +32,49 @@
                     <span class="text-muted">(@kept.Count files)</span>
                 </div>
 
-                <!-- YEAR FOLDERS -->
-                @foreach (var yearGroup in kept
-                    .GroupBy(f => f.Year)
-                    .OrderByDescending(g => g.Key))
+                <!-- MONTH FOLDERS -->
+                @foreach (var monthGroup in kept
+                    .GroupBy(f => new { f.Year, f.Month })
+                    .OrderByDescending(g => g.Key.Year)
+                    .ThenByDescending(g => g.Key.Month))
                 {
-                    <div class="ms-3 mb-2">
+                    var monthName = new DateTime(
+                            monthGroup.Key.Year,
+                            monthGroup.Key.Month,
+                            1)
+                        .ToString("MMMM", new CultureInfo("da-DK"));
 
+                    monthName =
+                        char.ToUpper(monthName[0]) +
+                        monthName[1..];
+
+                    var folderName =
+                        $"{monthGroup.Key.Year} {monthName}";
+
+                    <div class="ms-3 mb-3">
+
+                        <!-- MONTH HEADER -->
                         <div style="font-weight:500;">
-                            📂 @yearGroup.Key
-                            <span class="text-muted">(@yearGroup.Count())</span>
+                            📂 @folderName
+                            <span class="text-muted">
+                                (@monthGroup.Count())
+                            </span>
                         </div>
 
                         <!-- SAMPLE FILES -->
-                        <div class="ms-4 text-muted" style="font-size:0.85rem;">
+                        <div class="ms-4 text-muted"
+                             style="font-size:0.85rem;">
 
-                            @foreach (var file in yearGroup.Take(3))
+                            @foreach (var file in monthGroup.Take(3))
                             {
                                 <div>📄 @file.FileName</div>
                             }
 
-                            @if (yearGroup.Count() > 3)
+                            @if (monthGroup.Count() > 3)
                             {
-                                <div>… and @(yearGroup.Count() - 3) more</div>
+                                <div>
+                                    … and @(monthGroup.Count() - 3) more
+                                </div>
                             }
 
                         </div>
@@ -69,7 +91,7 @@
 
 @code {
 
-    readonly MediaMainCategory[] CategoryOrder = new[]
+    readonly MediaMainCategory[] CategoryOrder =
     {
         MediaMainCategory.Image,
         MediaMainCategory.Video,
