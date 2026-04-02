@@ -28,4 +28,44 @@ public static class LocationFilter
     }
 
     private static double ToRad(double angle) => angle * Math.PI / 180;
+    
+    public static string GetLocationName(double lat, double lng)
+    {
+        if (IsInAarhus(lat, lng))
+            return "Aarhus";
+
+        if (IsInSjaelland(lat, lng))
+            return "Sjaelland";
+
+        if (IsInJutlandMinusAarhus(lat, lng))
+            return "Jutland";
+
+        if (IsInDenmark(lat, lng))
+            return "Denmark";
+
+        if (IsInSweden(lat, lng))
+            return "Sweden";
+
+        // France
+        if (lat >= 42.0 && lat <= 51.5 &&
+            lng >= -5.5 && lng <= 8.5)
+            return "France";
+
+        // Austria
+        if (lat >= 46.0 && lat <= 49.2 &&
+            lng >= 9.0 && lng <= 17.5)
+            return "Austria";
+
+        // Greece
+        if (lat >= 34.0 && lat <= 42.0 &&
+            lng >= 19.0 && lng <= 29.0)
+            return "Greece";
+
+        // Thailand
+        if (lat >= 5.5 && lat <= 20.5 &&
+            lng >= 97.0 && lng <= 105.6)
+            return "Thailand";
+
+        return "Abroad";
+    }
 }

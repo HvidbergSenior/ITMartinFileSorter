@@ -2,6 +2,7 @@
 using System.Text.RegularExpressions;
 using ITMartinFileSorter.Application.Helpers;
 using ITMartinFileSorter.Domain.Entities;
+using ITMartinFileSorter.Domain.Enums;
 
 namespace ITMartinFileSorter.Application.Services;
 
@@ -50,17 +51,10 @@ public class TripGroupingService
 
     private bool IsTripCandidate(MediaFile file)
     {
-        if (file.MainCategory != Domain.Enums.MediaMainCategory.Image &&
-            file.MainCategory != Domain.Enums.MediaMainCategory.Video)
-            return false;
-
-        if (file.SubCategory == Domain.Enums.MediaSubCategory.Screenshot ||
-            file.SubCategory == Domain.Enums.MediaSubCategory.Social ||
-            file.SubCategory == Domain.Enums.MediaSubCategory.Meme ||
-            file.SubCategory == Domain.Enums.MediaSubCategory.ScreenRecording)
-            return false;
-
-        return true;
+        // Only real photos and videos belong in trip folders
+        return file.SubCategory == MediaSubCategory.Camera ||
+               file.SubCategory == MediaSubCategory.PhonePhoto ||
+               file.MainCategory == MediaMainCategory.Video;
     }
 
     private TripGroup BuildTrip(List<MediaFile> files)
@@ -113,6 +107,7 @@ public class TripGroupingService
     {
         Console.WriteLine("===== TRIP LOCATION DEBUG =====");
 
+        // Prefer GPS-based location
         foreach (var file in files)
         {
             var gpsLocation = GetGpsLocation(file);
@@ -127,6 +122,7 @@ public class TripGroupingService
             }
         }
 
+        // Fallback to source folder name
         var first = files.FirstOrDefault();
 
         if (first != null)
@@ -172,84 +168,11 @@ public class TripGroupingService
         Console.WriteLine($"[LAT] {lat}");
         Console.WriteLine($"[LNG] {lng}");
 
-        // ===== DENMARK =====
-        if (IsNear(lat, lng, 56.1629, 10.2039, 25))
-        {
-            Console.WriteLine("[MATCH] Aarhus");
-            return "Aarhus";
-        }
+        var location = LocationFilter.GetLocationName(lat, lng);
 
-        if (IsNear(lat, lng, 55.6761, 12.5683, 25))
-        {
-            Console.WriteLine("[MATCH] Copenhagen");
-            return "Copenhagen";
-        }
+        Console.WriteLine($"[MATCH] {location}");
 
-        if (IsNear(lat, lng, 57.0488, 9.9217, 25))
-        {
-            Console.WriteLine("[MATCH] Aalborg");
-            return "Aalborg";
-        }
-
-        // ===== FRANCE =====
-        if (lat >= 42.0 && lat <= 51.5 &&
-            lng >= -5.5 && lng <= 8.5)
-        {
-            Console.WriteLine("[MATCH] France");
-            return "France";
-        }
-
-        // ===== AUSTRIA =====
-        if (lat >= 46.0 && lat <= 49.2 &&
-            lng >= 9.0 && lng <= 17.5)
-        {
-            Console.WriteLine("[MATCH] Austria");
-            return "Austria";
-        }
-
-        // ===== THAILAND =====
-        if (lat >= 5.5 && lat <= 20.5 &&
-            lng >= 97.0 && lng <= 105.6)
-        {
-            Console.WriteLine("[MATCH] Thailand");
-            return "Thailand";
-        }
-
-        Console.WriteLine("[MATCH] Abroad");
-        return "Abroad";
-    }
-
-    private bool IsNear(
-        double lat1,
-        double lng1,
-        double lat2,
-        double lng2,
-        double maxKm)
-    {
-        const double R = 6371;
-
-        var dLat = ToRad(lat2 - lat1);
-        var dLng = ToRad(lng2 - lng1);
-
-        var a =
-            Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-            Math.Cos(ToRad(lat1)) *
-            Math.Cos(ToRad(lat2)) *
-            Math.Sin(dLng / 2) *
-            Math.Sin(dLng / 2);
-
-        var c = 2 * Math.Atan2(
-            Math.Sqrt(a),
-            Math.Sqrt(1 - a));
-
-        var distance = R * c;
-
-        return distance <= maxKm;
-    }
-
-    private double ToRad(double angle)
-    {
-        return angle * Math.PI / 180;
+        return location;
     }
 
     public string GetSingleFileLocation(MediaFile file)

@@ -46,25 +46,12 @@ public static class AlbumStyleNameBuilder
     {
         var coords = GpsHelper.GetCoordinates(file.FullPath);
 
-        // ⭐ No GPS → no location in name
         if (coords == null)
             return "";
 
-        var (lat, lng) = coords.Value;
-
-        if (LocationFilter.IsInAarhus(lat, lng)) return "Aarhus";
-        if (LocationFilter.IsInDenmark(lat, lng)) return "Denmark";
-        if (LocationFilter.IsInSweden(lat, lng)) return "Sweden";
-
-        // Thailand
-        if (lat >= 5.5 && lat <= 20.5 && lng >= 97.3 && lng <= 105.6)
-            return "Thailand";
-
-        // Greece
-        if (lat >= 34 && lat <= 42 && lng >= 19 && lng <= 29)
-            return "Greece";
-
-        return "Abroad";
+        return LocationFilter.GetLocationName(
+            coords.Value.lat,
+            coords.Value.lng);
     }
 
     private static string GetTypeLabel(MediaSubCategory sub)
