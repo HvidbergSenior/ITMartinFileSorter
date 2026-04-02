@@ -132,119 +132,153 @@
     void GoBack() => Navigation.NavigateTo("/");
 
     async Task StartExport()
+{
+    var files = DuplicateService.AllFiles
+        .Where(f => f.Status == MediaFileStatus.ToKeep)
+        .ToList();
+
+    if (!files.Any())
+        return;
+
+    var exportRoot = Path.Combine(
+        DuplicateService.FolderPath,
+        "Exported");
+
+    Directory.CreateDirectory(exportRoot);
+
+    IsExporting = true;
+    ExportedCount = 0;
+    TotalToExport = files.Count;
+    CurrentStage = "Copying files...";
+
+    await InvokeAsync(StateHasChanged);
+
+    try
     {
-        var files = DuplicateService.AllFiles
-            .Where(f => f.Status == MediaFileStatus.ToKeep)
-            .ToList();
-
-        if (!files.Any())
-            return;
-
-        var exportRoot = Path.Combine(
-            DuplicateService.FolderPath,
-            "Exported");
-
-        Directory.CreateDirectory(exportRoot);
-
-        IsExporting = true;
-        ExportedCount = 0;
-        TotalToExport = files.Count;
-        CurrentStage = "Copying files...";
-
-        await InvokeAsync(StateHasChanged);
-
-        try
+        var archiveOptions = new ArchiveOptions
         {
-            var archiveOptions = new ArchiveOptions
+            UseYearFolders = true,
+            UseMonthFolders = true,
+            UseTypeFolders = false,
+            UseTripFolders = true,
+            RenameFiles = true,
+            RenameStrategy = RenameStrategy.AlbumStyle
+        };
+
+        // 🔥 Build structure once
+        var builder = new ArchivePathBuilder(
+            new TripGroupingService());
+
+        var pathMap = builder.BuildStructure(
+            files,
+            archiveOptions);
+
+        // 🔥 DEBUG: show complete path map
+        Console.WriteLine("===== EXPORT PATH MAP DEBUG =====");
+
+        foreach (var kvp in pathMap)
+        {
+            Console.WriteLine($"PATH: {kvp.Key}");
+
+            foreach (var mappedFile in kvp.Value)
             {
-                UseYearFolders = true,
-                UseMonthFolders = true,
-                UseTypeFolders = false,
-                UseTripFolders = true,
-                RenameFiles = true,
-                RenameStrategy = RenameStrategy.AlbumStyle
-            };
-
-            // Build structure ONCE for all files
-            var pathMap = new ArchivePathBuilder(
-                    new TripGroupingService())
-                .BuildStructure(files, archiveOptions);
-
-            foreach (var file in files)
-            {
-                CurrentExportFile = file.FileName;
-
-                var relativePath = pathMap
-                    .First(x => x.Value.Contains(file))
-                    .Key;
-
-                var targetFolder = Path.Combine(
-                    exportRoot,
-                    relativePath);
-
-                Directory.CreateDirectory(targetFolder);
-
-                var newName = archiveOptions.RenameFiles
-                    ? FileRenameService.BuildName(
-                        file,
-                        ExportedCount + 1,
-                        archiveOptions.RenameStrategy)
-                    : file.FileName;
-
-                newName = AlbumStyleNameBuilder.EnsureUnique(
-                    targetFolder,
-                    newName);
-
-                var destination = Path.Combine(
-                    targetFolder,
-                    newName);
-
-                using var source = new FileStream(
-                    file.WorkingPath,
-                    FileMode.Open,
-                    FileAccess.Read,
-                    FileShare.Read,
-                    81920,
-                    true);
-
-                using var dest = new FileStream(
-                    destination,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None,
-                    81920,
-                    true);
-
-                await source.CopyToAsync(dest);
-
-                var created = File.GetCreationTime(file.WorkingPath);
-                var modified = File.GetLastWriteTime(file.WorkingPath);
-
-                if (created.Year < 2000)
-                    created = modified;
-
-                File.SetCreationTime(destination, created);
-                File.SetLastWriteTime(destination, modified);
-
-                ExportedCount++;
-
-                if (ExportedCount % 10 == 0)
-                    await InvokeAsync(StateHasChanged);
+                Console.WriteLine($"   -> {mappedFile.FileName} [{mappedFile.SubCategory}]");
             }
+        }
 
-            CurrentStage = "Export complete ✔";
-            CurrentExportFile = "";
-        }
-        catch (Exception ex)
+        // 🔥 safer lookup
+        var filePathLookup = new Dictionary<MediaFile, string>();
+
+        foreach (var kvp in pathMap)
         {
-            CurrentStage = "ERROR";
-            CurrentExportFile = ex.ToString();
+            foreach (var mappedFile in kvp.Value)
+            {
+                filePathLookup[mappedFile] = kvp.Key;
+            }
         }
-        finally
+
+        foreach (var file in files)
         {
-            IsExporting = false;
-            await InvokeAsync(StateHasChanged);
+            CurrentExportFile = file.FileName;
+
+            var relativePath = filePathLookup[file];
+
+            // 🔥 DEBUG
+            Console.WriteLine(
+                $"EXPORT FILE: {file.FileName} -> {relativePath}");
+
+            var targetFolder = Path.Combine(
+                exportRoot,
+                relativePath);
+
+            Directory.CreateDirectory(targetFolder);
+
+            var newName = archiveOptions.RenameFiles
+                ? FileRenameService.BuildName(
+                    file,
+                    ExportedCount + 1,
+                    archiveOptions.RenameStrategy)
+                : file.FileName;
+
+            newName = AlbumStyleNameBuilder.EnsureUnique(
+                targetFolder,
+                newName);
+
+            var destination = Path.Combine(
+                targetFolder,
+                newName);
+
+            Console.WriteLine(
+                $"COPY TO: {destination}");
+
+            using var source = new FileStream(
+                file.WorkingPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                81920,
+                true);
+
+            using var dest = new FileStream(
+                destination,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                81920,
+                true);
+
+            await source.CopyToAsync(dest);
+
+            var created = File.GetCreationTime(file.WorkingPath);
+            var modified = File.GetLastWriteTime(file.WorkingPath);
+
+            if (created.Year < 2000)
+                created = modified;
+
+            File.SetCreationTime(destination, created);
+            File.SetLastWriteTime(destination, modified);
+
+            ExportedCount++;
+
+            if (ExportedCount % 10 == 0)
+                await InvokeAsync(StateHasChanged);
         }
+
+        CurrentStage = "Export complete ✔";
+        CurrentExportFile = "";
     }
+    catch (Exception ex)
+    {
+        CurrentStage = "ERROR";
+        CurrentExportFile = ex.ToString();
 
+        Console.WriteLine("===== EXPORT ERROR =====");
+        Console.WriteLine(ex);
+    }
+    finally
+    {
+        IsExporting = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}
 }

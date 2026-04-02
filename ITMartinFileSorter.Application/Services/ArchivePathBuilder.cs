@@ -75,8 +75,31 @@ public class ArchivePathBuilder
         ArchiveOptions options,
         List<string> parts)
     {
-        // always add year + month
         AddStandardSubfolders(file, options, parts);
+
+        if (file.SubCategory == MediaSubCategory.Screenshot)
+        {
+            parts.Add("Screenshots");
+            return;
+        }
+
+        if (file.SubCategory == MediaSubCategory.Social)
+        {
+            parts.Add("Social");
+            return;
+        }
+
+        if (file.SubCategory == MediaSubCategory.Meme)
+        {
+            parts.Add("Memes");
+            return;
+        }
+
+        if (file.SubCategory == MediaSubCategory.ScreenRecording)
+        {
+            parts.Add("ScreenRecordings");
+            return;
+        }
 
         var trip = trips.FirstOrDefault(t => t.Files.Contains(file));
 
@@ -86,21 +109,12 @@ public class ArchivePathBuilder
             return;
         }
 
-        // screenshots
-        if (new JunkDetectionService().IsScreenshot(file))
-        {
-            parts.Add("Screenshots");
-            return;
-        }
-
-        // use file location if available
         if (!string.IsNullOrWhiteSpace(file.Location))
         {
             parts.Add(file.Location);
             return;
         }
 
-        // fallback by GPS
         var location = _tripService.GetSingleFileLocation(file);
 
         if (!string.IsNullOrWhiteSpace(location) &&
@@ -110,7 +124,6 @@ public class ArchivePathBuilder
             return;
         }
 
-        // final fallback
         parts.Add("Mixed");
     }
 

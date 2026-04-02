@@ -44,7 +44,9 @@
         // ---------------- SOURCE ----------------
         Download,
         WhatsApp,
-        Telegram
+        Telegram,
+        Meme,
+        Social
     }
 
     // Tertiary categories: finer classification

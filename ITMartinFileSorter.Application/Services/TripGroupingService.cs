@@ -10,9 +10,7 @@ public class TripGroupingService
     public List<TripGroup> CreateTrips(IEnumerable<MediaFile> files)
     {
         var mediaFiles = files
-            .Where(f =>
-                f.MainCategory.ToString() == "Image" ||
-                f.MainCategory.ToString() == "Video")
+            .Where(IsTripCandidate)
             .OrderBy(f => f.CreatedAt)
             .ToList();
 
@@ -48,6 +46,21 @@ public class TripGroupingService
             trips.Add(BuildTrip(currentTrip));
 
         return trips;
+    }
+
+    private bool IsTripCandidate(MediaFile file)
+    {
+        if (file.MainCategory != Domain.Enums.MediaMainCategory.Image &&
+            file.MainCategory != Domain.Enums.MediaMainCategory.Video)
+            return false;
+
+        if (file.SubCategory == Domain.Enums.MediaSubCategory.Screenshot ||
+            file.SubCategory == Domain.Enums.MediaSubCategory.Social ||
+            file.SubCategory == Domain.Enums.MediaSubCategory.Meme ||
+            file.SubCategory == Domain.Enums.MediaSubCategory.ScreenRecording)
+            return false;
+
+        return true;
     }
 
     private TripGroup BuildTrip(List<MediaFile> files)
