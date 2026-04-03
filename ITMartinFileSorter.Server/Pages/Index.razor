@@ -7,7 +7,6 @@
 @inject ProgressService Progress
 @inject NavigationManager Navigation
 @inject ThumbnailService ThumbnailService
-
 <div class="container mt-4">
 
     <!-- FOLDER INPUT -->
@@ -120,8 +119,10 @@
                      @onclick="() => GoToCategory(cat)">
 
                     <strong>@cat</strong><br />
-                    @remaining files remaining<br />
-                    @kept files kept
+                    Remaining: @remaining<br />
+                    Kept: @kept<br />
+                    Total: @filesInCat.Count<br />
+                    @FormatSize(filesInCat.Sum(f => f.SizeBytes))
                 </div>
             }
 
@@ -243,7 +244,6 @@
     {
         DuplicateService.Cancel();
     }
-
     async Task ScanFolder()
     {
         if (IsScanning) return;

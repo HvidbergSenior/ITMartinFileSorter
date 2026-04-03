@@ -35,10 +35,20 @@ public class ImageCategorizer
             file.SubCategory = MediaSubCategory.OtherImage;
         }
 
-        file.DynamicFolder = Path.Combine(
-            "Images",
-            file.SubCategory.ToString(),
-            yearMonth);
+        file.DynamicFolder = file.SubCategory switch
+        {
+            MediaSubCategory.Screenshot => Path.Combine(
+                "Screenshots",
+                yearMonth),
+
+            MediaSubCategory.Meme => Path.Combine(
+                "Memes",
+                yearMonth),
+
+            _ => Path.Combine(
+                "Images",
+                yearMonth)
+        };
     }
 
     private bool IsScreenshot(MediaFile file, string name, string ext)
