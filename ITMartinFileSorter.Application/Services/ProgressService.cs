@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace ITMartinFileSorter.Application.Progress;
+namespace ITMartinFileSorter.Application.Services;
 
 public class ProgressService
 {

@@ -1,4 +1,3 @@
-using ITMartinFileSorter.Application.Progress;
 using ITMartinFileSorter.Application.Services;
 using ITMartinFileSorter.Domain.Interfaces;
 using ITMartinFileSorter.Infrastructure.FileSystem;
@@ -23,10 +22,8 @@ builder.Services.AddSingleton<DuplicateService>();
 builder.Services.AddScoped<TripGroupingService>();
 builder.Services.AddScoped<FastUniversalVideoConverterService>();
 builder.Services.AddScoped<FastVideoBatchExportService>();
-builder.Services.AddScoped<ProfessionalOrganizerService>();
 builder.Services.AddScoped<HomeLocationService>();
 builder.Services.AddScoped<JunkDetectionService>();
-builder.Services.AddScoped<EventDetectionService>();
 builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<ArchivePathBuilder>();
 builder.Services.AddSingleton(new VideoThumbnailService(
