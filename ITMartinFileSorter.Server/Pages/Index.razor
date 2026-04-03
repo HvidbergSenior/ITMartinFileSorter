@@ -125,7 +125,29 @@
                     @FormatSize(filesInCat.Sum(f => f.SizeBytes))
                 </div>
             }
+            @{
+                var memes = DuplicateService.AllFiles
+                    .Where(f => f.SubCategory == MediaSubCategory.Meme)
+                    .ToList();
 
+                var screenshots = DuplicateService.AllFiles
+                    .Where(f => f.SubCategory == MediaSubCategory.Screenshot)
+                    .ToList();
+            }
+
+            <div class="main-category-box p-3 text-center"
+                 style="width:150px; border-radius:5px; background:#f8d7da;">
+                <strong>Memes</strong><br />
+                Total: @memes.Count<br />
+                @FormatSize(memes.Sum(f => f.SizeBytes))
+            </div>
+
+            <div class="main-category-box p-3 text-center"
+                 style="width:150px; border-radius:5px; background:#d1ecf1;">
+                <strong>Screenshots</strong><br />
+                Total: @screenshots.Count<br />
+                @FormatSize(screenshots.Sum(f => f.SizeBytes))
+            </div>
             <div class="all-files-card p-3 text-center"
                  style="width:150px; border:1px solid #ccc;">
                 <strong>Total</strong><br />

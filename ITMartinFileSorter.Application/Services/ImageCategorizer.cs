@@ -35,50 +35,35 @@ public class ImageCategorizer
             file.SubCategory = MediaSubCategory.OtherImage;
         }
 
+        // NEW EXPORT STRUCTURE
         file.DynamicFolder = file.SubCategory switch
         {
-            MediaSubCategory.Screenshot => Path.Combine(
-                "Screenshots",
-                yearMonth),
-
-            MediaSubCategory.Meme => Path.Combine(
-                "Memes",
-                yearMonth),
-
-            _ => Path.Combine(
-                "Images",
-                yearMonth)
+            MediaSubCategory.Screenshot => "Screenshots",
+            MediaSubCategory.Meme => "Memes",
+            _ => Path.Combine("Images", yearMonth)
         };
     }
 
     private bool IsScreenshot(MediaFile file, string name, string ext)
     {
-        // All PNG phone captures / screenshots
         if (ext == ".png")
             return true;
 
-        if (name.Contains("screenshot") ||
-            name.Contains("screen") ||
-            name.Contains("capture"))
-            return true;
-
-        return false;
+        return name.Contains("screenshot") ||
+               name.Contains("screen") ||
+               name.Contains("capture");
     }
 
     private bool IsMeme(MediaFile file, string name, string ext)
     {
-        // All gif / webp files are memes / reactions
         if (ext == ".gif" || ext == ".webp")
             return true;
 
-        if (name.Contains("meme") ||
-            name.Contains("funny") ||
-            name.Contains("reaction") ||
-            name.Contains("sticker") ||
-            name.Contains("joker"))
-            return true;
-
-        return false;
+        return name.Contains("meme") ||
+               name.Contains("funny") ||
+               name.Contains("reaction") ||
+               name.Contains("sticker") ||
+               name.Contains("joker");
     }
 
     private bool IsSocial(MediaFile file, string name)
@@ -92,7 +77,6 @@ public class ImageCategorizer
 
     private bool IsCameraPhoto(string name, string ext)
     {
-        // iPhone / camera formats
         if (ext == ".heic" ||
             ext == ".jpg" ||
             ext == ".jpeg")

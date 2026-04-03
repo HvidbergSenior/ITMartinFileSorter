@@ -75,31 +75,41 @@ public class ArchivePathBuilder
         ArchiveOptions options,
         List<string> parts)
     {
-        AddStandardSubfolders(file, options, parts);
-
+        // TOP-LEVEL SPECIAL FOLDERS
         if (file.SubCategory == MediaSubCategory.Screenshot)
         {
+            parts.Clear();
+            parts.Add("Organized");
             parts.Add("Screenshots");
-            return;
-        }
-
-        if (file.SubCategory == MediaSubCategory.Social)
-        {
-            parts.Add("Social");
             return;
         }
 
         if (file.SubCategory == MediaSubCategory.Meme)
         {
+            parts.Clear();
+            parts.Add("Organized");
             parts.Add("Memes");
+            return;
+        }
+
+        if (file.SubCategory == MediaSubCategory.Social)
+        {
+            parts.Clear();
+            parts.Add("Organized");
+            parts.Add("Social");
             return;
         }
 
         if (file.SubCategory == MediaSubCategory.ScreenRecording)
         {
+            parts.Clear();
+            parts.Add("Organized");
             parts.Add("ScreenRecordings");
             return;
         }
+
+        // NORMAL IMAGE / VIDEO STRUCTURE
+        AddStandardSubfolders(file, options, parts);
 
         var trip = trips.FirstOrDefault(t => t.Files.Contains(file));
 
