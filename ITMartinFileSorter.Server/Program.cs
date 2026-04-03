@@ -25,6 +25,7 @@ builder.Services.AddScoped<FastVideoBatchExportService>();
 builder.Services.AddScoped<HomeLocationService>();
 builder.Services.AddScoped<JunkDetectionService>();
 builder.Services.AddScoped<ProgressService>();
+builder.Services.AddScoped<ThumbnailService>();
 builder.Services.AddScoped<ArchivePathBuilder>();
 builder.Services.AddSingleton(new VideoThumbnailService(
     Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "media_temp")

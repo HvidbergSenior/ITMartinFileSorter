@@ -1,13 +1,12 @@
 ﻿@page "/"
 @using ITMartinFileSorter.Application.Services
-@using ITMartinFileSorter.Domain.Enums
-@using ITMartinFileSorter.Domain.Entities
 @inject DuplicateService DuplicateService
 @inject IFileScanner FileScanner
 @inject IHashService HashService
 @inject MediaCategorizer MediaCategorizer
 @inject ProgressService Progress
 @inject NavigationManager Navigation
+@inject ThumbnailService ThumbnailService
 
 <div class="container mt-4">
 

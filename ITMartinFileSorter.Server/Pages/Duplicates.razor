@@ -1,4 +1,6 @@
 ﻿@page "/duplicates"
+@using ITMartinFileSorter.Domain.Entities
+@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 
@@ -30,52 +32,49 @@
     {
         @foreach (var group in DuplicateService.CurrentPageGroups)
         {
-            <div class="border p-2 mb-3">
+            <div class="border rounded p-3 mb-4">
 
-                <div class="d-flex gap-2 flex-wrap">
+                <div class="d-flex gap-3 flex-wrap">
 
                     @foreach (var file in group)
                     {
-                        <div style="width:140px"
-                             class="border p-2 text-center">
+                        <div class="position-relative">
 
-                            <div style="font-size:0.75em">
-                                @file.FileName
-                            </div>
-
-                            <div style="font-size:0.7em">
-                                @FormatSize(file.SizeBytes)
-                            </div>
+                            <MediaCard File="file"
+                                       OnKeep="Keep"
+                                       ShowThumbnail="true" />
+                            @if (file.Status == MediaFileStatus.ToDelete)
+                            {
+                                <div class="text-danger text-center mt-1">
+                                    Delete
+                                </div>
+                            }
+                            else if (file.Status == MediaFileStatus.ToKeep)
+                            {
+                                <div class="text-success text-center mt-1">
+                                    Keep
+                                </div>
+                            }
 
                             @if (file.Status == MediaFileStatus.Initial)
                             {
-                                <button class="btn btn-sm btn-success w-100"
-                                        @onclick="() => Keep(file)">
-                                    Keep
-                                </button>
-
-                                <button class="btn btn-sm btn-danger w-100"
+                                <button class="btn btn-sm btn-danger w-100 mt-1"
                                         @onclick="() => Delete(file)">
                                     Delete
                                 </button>
-                            }
-                            else
-                            {
-                                <div>@file.Status</div>
                             }
                         </div>
                     }
 
                 </div>
 
-                <button class="btn btn-sm btn-danger mt-2"
+                <button class="btn btn-sm btn-danger mt-3"
                         @onclick="() => DeleteAllButOne(group)">
                     Delete All But One
                 </button>
             </div>
         }
 
-        <!-- PAGINATION -->
         <div class="d-flex justify-content-center gap-2 mt-3">
 
             <button class="btn btn-secondary"
@@ -120,49 +119,28 @@
         var newest = group.OrderByDescending(f => f.CreatedAt).First();
 
         foreach (var f in group)
+        {
             f.Status = f == newest
                 ? MediaFileStatus.ToKeep
                 : MediaFileStatus.ToDelete;
+        }
     }
 
     void DeleteAllDuplicatesGlobally()
     {
         foreach (var group in DuplicateService.DuplicateGroups)
         {
-            var newest = group.OrderByDescending(f => f.CreatedAt).First();
-
-            foreach (var f in group)
-                if (f != newest)
-                    f.Status = MediaFileStatus.ToDelete;
+            DeleteAllButOne(group);
         }
     }
 
-    void PrevPage()
-    {
-        DuplicateService.CurrentPage--;
-    }
+    void PrevPage() => DuplicateService.CurrentPage--;
 
-    void NextPage()
-    {
-        DuplicateService.CurrentPage++;
-    }
+    void NextPage() => DuplicateService.CurrentPage++;
 
     void Continue()
     {
         DuplicateService.DuplicatesHandled = true;
         Navigation.NavigateTo("/");
-    }
-
-    string FormatSize(long bytes)
-    {
-        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-        double len = bytes;
-        int order = 0;
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len /= 1024;
-        }
-        return $"{len:0.#} {sizes[order]}";
     }
 }

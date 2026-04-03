@@ -1,5 +1,5 @@
-﻿@using ITMartinFileSorter.Domain.Entities
-@using ITMartinFileSorter.Domain.Enums
+﻿@using ITMartinFileSorter.Application.Services
+@inject ThumbnailService ThumbnailService
 
 <div class="text-center p-2 d-flex flex-column"
      style="
@@ -8,23 +8,27 @@
      border:2px solid #ddd;
      border-radius:8px;
      background:#fff;
-     box-shadow:0 1px 3px rgba(0,0,0,0.08);
-     ">
+     box-shadow:0 1px 3px rgba(0,0,0,0.08);">
 
-    <!-- PREVIEW -->
     <div style="height:70px; display:flex; align-items:center; justify-content:center;">
         @switch (File.MainCategory)
         {
             case MediaMainCategory.Image:
-                <img src="@File.ThumbnailPath"
-                     style="max-height:60px; max-width:100%; object-fit:contain;" />
+
+                @if (ShowThumbnail &&
+                     !string.IsNullOrEmpty(File.ThumbnailPath))
+                {
+                    <img src="@File.ThumbnailPath"
+                         style="max-height:60px; max-width:100%; object-fit:contain;" />
+                }
+                else
+                {
+                    <div style="font-size:32px;">🖼️</div>
+                }
                 break;
 
             case MediaMainCategory.Video:
-                <video src="@File.WorkingPath"
-                       muted preload="metadata"
-                       style="max-height:60px; max-width:100%; object-fit:contain;">
-                </video>
+                <div style="font-size:32px;">🎬</div>
                 break;
 
             case MediaMainCategory.Audio:
@@ -36,8 +40,6 @@
                 break;
         }
     </div>
-
-    <!-- NAME -->
     <div style="
         font-size:0.75em;
         word-break:break-word;
@@ -46,12 +48,10 @@
         @File.FileName
     </div>
 
-    <!-- SIZE -->
     <div style="font-size:0.65em; color:#666;">
         @FormatSize(File.SizeBytes)
     </div>
 
-    <!-- ACTION -->
     <div class="mt-auto">
         <button class="btn btn-sm btn-success w-100"
                 @onclick="() => OnKeep.InvokeAsync(File)">
@@ -63,8 +63,19 @@
 @code {
 
     [Parameter] public MediaFile File { get; set; } = default!;
-
     [Parameter] public EventCallback<MediaFile> OnKeep { get; set; }
+    [Parameter] public bool ShowThumbnail { get; set; } = false;
+    protected override void OnParametersSet()
+    {
+        if (!ShowThumbnail)
+            return;
+
+        if (string.IsNullOrEmpty(File.ThumbnailPath) &&
+            File.Type == MediaType.Image)
+        {
+            File.ThumbnailPath = ThumbnailService.GenerateThumbnail(File);
+        }
+    }
 
     string FormatSize(long bytes)
     {

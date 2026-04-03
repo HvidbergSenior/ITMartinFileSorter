@@ -7,7 +7,6 @@
 
 <div class="container mt-4">
 
-    <!-- TOP BAR -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <button class="btn btn-primary"
                 @onclick="Continue"
@@ -36,8 +35,9 @@
 
             @foreach (var group in AudioGroups)
             {
-                <div class="p-2 border rounded">
-                    <strong>@group.Key</strong> (@group.Value.Count files)
+                <div class="p-3 border rounded">
+                    <strong>@group.Key</strong>
+                    <div class="text-muted">@group.Value.Count files</div>
 
                     <div class="d-flex gap-2 flex-wrap mt-2">
                         @foreach (var file in group.Value)
@@ -49,40 +49,28 @@
             }
         </div>
     }
-    else if (CurrentCategory == MediaMainCategory.Document)
+    else
     {
-        <div class="d-flex gap-2 flex-wrap mb-3">
-
-            @foreach (var file in FilesInCategory)
-            {
-                <MediaCard File="file" OnKeep="Keep" />
-            }
-
-        </div>
-    }
-    else if (CurrentCategory == MediaMainCategory.Image ||
-             CurrentCategory == MediaMainCategory.Video)
-    {
-        @foreach (var yearGroup in YearGroups)
+        @foreach (var yearGroup in YearGroups.Select((group, index) => new { group, index }))
         {
-            <div class="mb-4 p-2 border rounded">
+            <div class="mb-4 p-3 border rounded">
 
                 <div class="d-flex justify-content-between align-items-center">
-                    <h5>@yearGroup.Key</h5>
+                    <h5>@yearGroup.group.Key</h5>
 
                     <button class="btn btn-sm btn-success"
-                            @onclick="() => AcceptAll(yearGroup.Value)">
+                            @onclick="() => AcceptAll(yearGroup.group.Value)">
                         Accept All Year
                     </button>
                 </div>
 
-                <div class="d-flex flex-wrap gap-2 mt-2">
-
-                    @foreach (var file in yearGroup.Value)
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    @foreach (var file in yearGroup.group.Value)
                     {
-                        <MediaCard File="file" OnKeep="Keep" />
+                        <MediaCard File="file"
+                                   OnKeep="Keep"
+                                   ShowThumbnail="@(yearGroup.index == 0)" />
                     }
-
                 </div>
             </div>
         }
@@ -98,10 +86,11 @@
     private List<MediaFile> FilesInCategory = new();
     private Dictionary<string, List<MediaFile>> AudioGroups = new();
     private Dictionary<int, List<MediaFile>> YearGroups = new();
+
     bool CanContinue =>
-        !DuplicateService.AllFiles
-            .Any(f => f.MainCategory == CurrentCategory &&
-                      f.Status == MediaFileStatus.Initial);
+        !DuplicateService.AllFiles.Any(f =>
+            f.MainCategory == CurrentCategory &&
+            f.Status == MediaFileStatus.Initial);
 
     protected override void OnInitialized()
     {
@@ -120,8 +109,9 @@
     void LoadFiles()
     {
         FilesInCategory = DuplicateService.AllFiles
-            .Where(f => f.MainCategory == CurrentCategory &&
-                        f.Status == MediaFileStatus.Initial)
+            .Where(f =>
+                f.MainCategory == CurrentCategory &&
+                f.Status == MediaFileStatus.Initial)
             .ToList();
 
         if (CurrentCategory == MediaMainCategory.Audio)
@@ -131,12 +121,11 @@
                 .OrderBy(g => g.Key)
                 .ToDictionary(g => g.Key, g => g.ToList());
         }
-        else if (CurrentCategory == MediaMainCategory.Image ||
-                 CurrentCategory == MediaMainCategory.Video)
+        else
         {
             YearGroups = FilesInCategory
                 .GroupBy(f => f.Year)
-                .OrderBy(g => g.Key)
+                .OrderByDescending(g => g.Key)
                 .ToDictionary(g => g.Key, g => g.ToList());
         }
     }
