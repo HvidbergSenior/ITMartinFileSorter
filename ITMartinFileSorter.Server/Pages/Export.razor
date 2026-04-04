@@ -1,5 +1,6 @@
 ﻿@page "/export"
 @using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Domain.Entities
 @using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
@@ -133,7 +134,7 @@
             .GroupBy(f => f.Hash ?? f.FullPath)
             .Select(g => g.First())
             .ToList();
-        
+
         if (!files.Any())
             return;
 
@@ -239,7 +240,6 @@
                     await InvokeAsync(StateHasChanged);
             }
 
-            // 🔥 NEW: video conversion after copy
             CurrentStage = "Converting videos to MP4...";
             CurrentExportFile = "";
             ExportedCount = 0;
@@ -260,6 +260,29 @@
 
             CurrentStage = "Export complete ✔";
             CurrentExportFile = "";
+
+            await InvokeAsync(StateHasChanged);
+
+            // AUTO OPEN NEWEST VIDEO
+            var latestVideo = Directory
+                .GetFiles(exportRoot, "*.mp4", SearchOption.AllDirectories)
+                .OrderByDescending(File.GetLastWriteTime)
+                .FirstOrDefault();
+
+            Console.WriteLine("===== AUTO OPEN DEBUG =====");
+            Console.WriteLine($"Export root: {exportRoot}");
+            Console.WriteLine($"Latest video: {latestVideo}");
+
+            if (latestVideo != null)
+            {
+                Navigation.NavigateTo(
+                    $"/viewer?path={Uri.EscapeDataString(latestVideo)}",
+                    forceLoad: true);
+            }
+            else
+            {
+                Navigation.NavigateTo("/library", forceLoad: true);
+            }
         }
         catch (Exception ex)
         {

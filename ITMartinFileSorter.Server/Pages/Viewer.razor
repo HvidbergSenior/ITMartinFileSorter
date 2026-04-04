@@ -1,0 +1,78 @@
+﻿@page "/viewer"
+@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager Navigation
+
+<h3>Media Viewer</h3>
+
+<div class="alert alert-info">
+    <strong>DEBUG</strong><br />
+    FilePath: @FilePath <br />
+    WebPath: @WebPath <br />
+    IsVideo: @IsVideo
+</div>
+
+@if (!string.IsNullOrEmpty(WebPath))
+{
+    @if (IsVideo)
+    {
+        <video width="100%" style="max-height:80vh" controls autoplay>
+            <source src="@WebPath" type="video/mp4" />
+            Browser cannot play video.
+        </video>
+    }
+    else
+    {
+        <img src="@WebPath"
+             class="img-fluid rounded shadow" />
+    }
+}
+else
+{
+    <div class="alert alert-danger">
+        No valid path found
+    </div>
+}
+
+@code {
+    private string FilePath = "";
+    private string WebPath = "";
+    private bool IsVideo;
+
+    protected override void OnInitialized()
+    {
+        Console.WriteLine("===== VIEWER DEBUG =====");
+
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+
+        Console.WriteLine($"URI: {uri}");
+
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.TryGetValue("path", out var path))
+        {
+            FilePath = path!;
+
+            Console.WriteLine($"FilePath: {FilePath}");
+
+            var ext = Path.GetExtension(FilePath).ToLower();
+
+            Console.WriteLine($"Extension: {ext}");
+
+            IsVideo = ext is ".mp4" or ".mov" or ".avi" or ".mkv";
+
+            var exportRoot =
+                @"C:\Users\hvidb\Desktop\BillederIphone\Film\Exported";
+
+            WebPath = "/libraryfiles" +
+                      FilePath.Replace(exportRoot, "")
+                          .Replace("\\", "/");
+
+            Console.WriteLine($"WebPath: {WebPath}");
+            Console.WriteLine($"IsVideo: {IsVideo}");
+        }
+        else
+        {
+            Console.WriteLine("NO QUERY PATH FOUND");
+        }
+    }
+}

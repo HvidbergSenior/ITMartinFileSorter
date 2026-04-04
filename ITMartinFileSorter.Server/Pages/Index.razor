@@ -172,7 +172,10 @@
             </div>
         }
     }
-
+    <button class="btn btn-dark mt-3"
+            @onclick="GoToLibrary">
+        Open Media Library
+    </button>
 </div>
 
 @code {
@@ -265,6 +268,10 @@
     void CancelScan()
     {
         DuplicateService.Cancel();
+    }
+    void GoToLibrary()
+    {
+        Navigation.NavigateTo("/library");
     }
     async Task ScanFolder()
     {

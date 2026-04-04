@@ -1,0 +1,100 @@
+﻿@page "/library"
+@using ITMartinFileSorter.Application.Services
+@inject IFileScanner FileScanner
+@inject ThumbnailService ThumbnailService
+@inject NavigationManager Navigation
+
+<h3>Media Library</h3>
+
+<div class="mb-3 d-flex">
+    <input class="form-control me-2"
+           @bind="LibraryPath"
+           placeholder="Folder to browse..." />
+
+    <button class="btn btn-primary" @onclick="LoadLibrary">
+        Load
+    </button>
+</div>
+
+<div class="row">
+    @foreach (var file in Files)
+    {
+        <div class="col-md-3 mb-4">
+            <div class="card h-100 shadow-sm"
+                 style="cursor:pointer"
+                 @onclick="() => OpenFile(file)">
+
+                @if (!string.IsNullOrEmpty(file.ThumbnailPath))
+                {
+                    <img src="@file.ThumbnailPath"
+                         class="card-img-top"
+                         style="height:200px; object-fit:cover;" />
+                }
+                else
+                {
+                    <div style="height:200px"
+                         class="d-flex align-items-center justify-content-center bg-light">
+                        No preview
+                    </div>
+                }
+
+                <div class="card-body">
+                    <strong>@file.FileName</strong>
+                    <br />
+                    @file.MainCategory
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-success ms-2" @onclick="LoadLibrary">
+            Refresh Library
+        </button>
+    }
+</div>
+
+@code {
+    private string LibraryPath =
+        @"C:\Users\hvidb\Desktop\BillederIphone\Film\Exported\Organized";
+
+    private List<MediaFile> Files = new();
+
+    protected override void OnInitialized()
+    {
+        LoadLibrary();
+    }
+
+    private void LoadLibrary()
+    {
+        Console.WriteLine("===== LIBRARY DEBUG =====");
+        Console.WriteLine($"Loading from: {LibraryPath}");
+        Console.WriteLine($"Exists: {Directory.Exists(LibraryPath)}");
+
+        if (!Directory.Exists(LibraryPath))
+            return;
+
+        Files = FileScanner.ScanFolder(LibraryPath).ToList();
+
+        Console.WriteLine($"Files found: {Files.Count}");
+
+        foreach (var file in Files)
+        {
+            file.ThumbnailPath = ThumbnailService.GenerateThumbnail(file);
+
+            Console.WriteLine(file.FullPath);
+            Console.WriteLine(file.ThumbnailPath);
+        }
+
+        StateHasChanged();
+    }
+
+    private void OpenFile(MediaFile file)
+    {
+        var path = file.FullPath;
+
+        var mp4Path = Path.ChangeExtension(path, ".mp4");
+
+        if (File.Exists(mp4Path))
+            path = mp4Path;
+
+        Navigation.NavigateTo($"/viewer?path={Uri.EscapeDataString(path)}");
+    }
+}

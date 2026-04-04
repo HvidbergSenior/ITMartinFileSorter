@@ -37,6 +37,8 @@ public class ThumbnailService
                     break;
 
                 case MediaType.Video:
+                    GenerateVideoThumbnail(file.FullPath, fullOutputPath);
+                    break;
 
                 default:
                     return null;
