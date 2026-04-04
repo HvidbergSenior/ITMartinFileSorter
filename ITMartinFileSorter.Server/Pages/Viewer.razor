@@ -1,78 +1,168 @@
 ﻿@page "/viewer"
 @using Microsoft.AspNetCore.WebUtilities
+@using System.Timers
 @inject NavigationManager Navigation
 
-<h3>Media Viewer</h3>
+<div class="viewer-page">
 
-<div class="alert alert-info">
-    <strong>DEBUG</strong><br />
-    FilePath: @FilePath <br />
-    WebPath: @WebPath <br />
-    IsVideo: @IsVideo
-</div>
+    <div class="viewer-toolbar">
+        <button class="btn btn-secondary" @onclick="PlayPrevious">
+            ⬅ Previous
+        </button>
 
-@if (!string.IsNullOrEmpty(WebPath))
-{
-    @if (IsVideo)
-    {
-        <video width="100%" style="max-height:80vh" controls autoplay>
-            <source src="@WebPath" type="video/mp4" />
-            Browser cannot play video.
-        </video>
-    }
-    else
-    {
-        <img src="@WebPath"
-             class="img-fluid rounded shadow" />
-    }
-}
-else
-{
-    <div class="alert alert-danger">
-        No valid path found
+        <button class="btn btn-danger" @onclick="PlayNext">
+            Next ➜
+        </button>
     </div>
-}
+
+    @if (!string.IsNullOrEmpty(WebPath))
+    {
+        @if (IsVideo)
+        {
+            <video @key="WebPath"
+                   width="100%"
+                   style="max-height:80vh"
+                   controls
+                   autoplay
+                   @onended="PlayNext">
+                <source src="@WebPath" type="video/mp4" />
+            </video>
+        }
+        else
+        {
+            <img src="@WebPath"
+                 class="img-fluid rounded shadow"
+                 style="max-height:80vh" />
+        }
+    }
+
+</div>
 
 @code {
     private string FilePath = "";
     private string WebPath = "";
     private bool IsVideo;
 
+    private List<string> Playlist = new();
+    private int CurrentIndex = 0;
+
+    private Timer? _slideshowTimer;
+
     protected override void OnInitialized()
     {
-        Console.WriteLine("===== VIEWER DEBUG =====");
-
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-
-        Console.WriteLine($"URI: {uri}");
-
         var query = QueryHelpers.ParseQuery(uri.Query);
 
         if (query.TryGetValue("path", out var path))
         {
-            FilePath = path!;
+            FilePath = Uri.UnescapeDataString(path!);
 
-            Console.WriteLine($"FilePath: {FilePath}");
+            var folder = Path.GetDirectoryName(FilePath)!;
 
-            var ext = Path.GetExtension(FilePath).ToLower();
+            Playlist = Directory
+                .GetFiles(folder)
+                .Where(f =>
+                    f.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ||
+                    f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                    f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                    f.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x)
+                .ToList();
 
-            Console.WriteLine($"Extension: {ext}");
+            CurrentIndex = Playlist.FindIndex(f =>
+                string.Equals(f, FilePath, StringComparison.OrdinalIgnoreCase));
 
-            IsVideo = ext is ".mp4" or ".mov" or ".avi" or ".mkv";
+            if (CurrentIndex < 0)
+                CurrentIndex = 0;
 
-            var exportRoot =
-                @"C:\Users\hvidb\Desktop\BillederIphone\Film\Exported";
+            Console.WriteLine("===== VIEWER PLAYLIST DEBUG =====");
+            Console.WriteLine($"Current file: {FilePath}");
+            Console.WriteLine($"Playlist count: {Playlist.Count}");
+            Console.WriteLine($"Current index: {CurrentIndex}");
 
-            WebPath = "/libraryfiles" +
-                      FilePath.Replace(exportRoot, "")
+            foreach (var item in Playlist)
+                Console.WriteLine(item);
+
+            LoadCurrentMedia();
+        }
+    }
+
+    private void LoadCurrentMedia()
+    {
+        StopTimer();
+
+        FilePath = Playlist[CurrentIndex];
+
+        var exportRoot =
+            @"C:\Users\hvidb\Desktop\BillederIphone\Film\Exported";
+
+        WebPath = "/libraryfiles" +
+                  FilePath.Replace(exportRoot, "")
                           .Replace("\\", "/");
 
-            Console.WriteLine($"WebPath: {WebPath}");
-            Console.WriteLine($"IsVideo: {IsVideo}");
-        }
-        else
+        var ext = Path.GetExtension(FilePath).ToLower();
+
+        IsVideo = ext == ".mp4";
+
+        if (!IsVideo)
+            StartTimer();
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void StartTimer()
+    {
+        _slideshowTimer = new Timer(4000);
+        _slideshowTimer.Elapsed += (_, _) =>
         {
-            Console.WriteLine("NO QUERY PATH FOUND");
-        }
+            InvokeAsync(() =>
+            {
+                PlayNext();
+            });
+        };
+
+        _slideshowTimer.AutoReset = false;
+        _slideshowTimer.Start();
+    }
+
+    private void StopTimer()
+    {
+        _slideshowTimer?.Stop();
+        _slideshowTimer?.Dispose();
+        _slideshowTimer = null;
+    }
+
+    private void PlayNext()
+    {
+        if (Playlist.Count == 0)
+            return;
+
+        CurrentIndex++;
+
+        if (CurrentIndex >= Playlist.Count)
+            CurrentIndex = 0;
+
+        Console.WriteLine("===== NEXT CLICK =====");
+        Console.WriteLine($"New index: {CurrentIndex}");
+
+        LoadCurrentMedia();
+    }
+
+    private void PlayPrevious()
+    {
+        if (Playlist.Count == 0)
+            return;
+
+        CurrentIndex--;
+
+        if (CurrentIndex < 0)
+            CurrentIndex = Playlist.Count - 1;
+
+        LoadCurrentMedia();
+    }
+
+    public void Dispose()
+    {
+        StopTimer();
     }
 }
