@@ -130,8 +130,10 @@
     {
         var files = DuplicateService.AllFiles
             .Where(f => f.Status == MediaFileStatus.ToKeep)
+            .GroupBy(f => f.Hash ?? f.FullPath)
+            .Select(g => g.First())
             .ToList();
-
+        
         if (!files.Any())
             return;
 
