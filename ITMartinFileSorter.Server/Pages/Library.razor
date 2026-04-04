@@ -1,55 +1,62 @@
 ﻿@page "/library"
 @using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Domain.Entities
 @inject IFileScanner FileScanner
 @inject ThumbnailService ThumbnailService
 @inject NavigationManager Navigation
 
-<h3>Media Library</h3>
+<div class="library-page"
+     style="background:black; min-height:100vh; color:white;">
+    <div style="background:red; color:white; padding:20px;">
+        TEST BACKGROUND
+    </div>
+    <div class="library-header">
+        <h1>🎬 My Media Library</h1>
+        <p>Your movies, photos and memories</p>
+    </div>
 
-<div class="mb-3 d-flex">
-    <input class="form-control me-2"
-           @bind="LibraryPath"
-           placeholder="Folder to browse..." />
+    <div class="library-toolbar">
+        <input class="search-box"
+               @bind="LibraryPath"
+               placeholder="Folder path..." />
 
-    <button class="btn btn-primary" @onclick="LoadLibrary">
-        Load
-    </button>
-</div>
+        <button class="load-btn" @onclick="LoadLibrary">
+            Refresh
+        </button>
+    </div>
 
-<div class="row">
-    @foreach (var file in Files)
-    {
-        <div class="col-md-3 mb-4">
-            <div class="card h-100 shadow-sm"
-                 style="cursor:pointer"
+    <div class="media-grid">
+        @foreach (var file in Files)
+        {
+            <div class="media-card"
                  @onclick="() => OpenFile(file)">
 
                 @if (!string.IsNullOrEmpty(file.ThumbnailPath))
                 {
                     <img src="@file.ThumbnailPath"
-                         class="card-img-top"
-                         style="height:200px; object-fit:cover;" />
+                         class="media-thumb" />
                 }
                 else
                 {
-                    <div style="height:200px"
-                         class="d-flex align-items-center justify-content-center bg-light">
-                        No preview
+                    <div class="media-placeholder">
+                        🎥
                     </div>
                 }
 
-                <div class="card-body">
-                    <strong>@file.FileName</strong>
-                    <br />
-                    @file.MainCategory
+                <div class="media-overlay">
+                    ▶ Play
+                </div>
+
+                <div class="media-info">
+                    <div class="media-title">@file.FileName</div>
+                    <div class="media-type">@file.MainCategory</div>
                 </div>
             </div>
-        </div>
-        <button class="btn btn-success ms-2" @onclick="LoadLibrary">
-            Refresh Library
-        </button>
-    }
+        }
+    </div>
+
 </div>
+
 
 @code {
     private string LibraryPath =
@@ -64,23 +71,14 @@
 
     private void LoadLibrary()
     {
-        Console.WriteLine("===== LIBRARY DEBUG =====");
-        Console.WriteLine($"Loading from: {LibraryPath}");
-        Console.WriteLine($"Exists: {Directory.Exists(LibraryPath)}");
-
         if (!Directory.Exists(LibraryPath))
             return;
 
         Files = FileScanner.ScanFolder(LibraryPath).ToList();
 
-        Console.WriteLine($"Files found: {Files.Count}");
-
         foreach (var file in Files)
         {
             file.ThumbnailPath = ThumbnailService.GenerateThumbnail(file);
-
-            Console.WriteLine(file.FullPath);
-            Console.WriteLine(file.ThumbnailPath);
         }
 
         StateHasChanged();
@@ -95,6 +93,7 @@
         if (File.Exists(mp4Path))
             path = mp4Path;
 
-        Navigation.NavigateTo($"/viewer?path={Uri.EscapeDataString(path)}");
+        Navigation.NavigateTo(
+            $"/viewer?path={Uri.EscapeDataString(path)}");
     }
 }

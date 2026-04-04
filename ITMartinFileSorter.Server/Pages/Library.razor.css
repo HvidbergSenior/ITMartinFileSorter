@@ -1,0 +1,66 @@
+﻿.library-page {
+    min-height: 100vh;
+    width: 100%;
+    padding: 35px;
+    background: #0b0b0b;
+    color: white;
+}
+
+.library-page .library-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.library-page .library-header p {
+    color: #b3b3b3;
+}
+
+.library-page .library-toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 35px;
+}
+
+.library-page .search-box {
+    flex: 1;
+    padding: 14px 18px;
+    border-radius: 14px;
+    border: 1px solid #2a2a2a;
+    background: #1b1b1b;
+    color: white;
+}
+
+.library-page .load-btn {
+    padding: 14px 22px;
+    border-radius: 14px;
+    border: none;
+    background: #e50914;
+    color: white;
+    font-weight: 600;
+}
+
+.library-page .media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 26px;
+}
+
+.library-page .media-card {
+    position: relative;
+    background: #181818;
+    border-radius: 22px;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    transition: transform 0.25s ease;
+}
+
+.library-page .media-card:hover {
+    transform: scale(1.03);
+}
+
+.library-page .media-thumb {
+    width: 100%;
+    height: 240px;
+    object-fit: cover;
+}
