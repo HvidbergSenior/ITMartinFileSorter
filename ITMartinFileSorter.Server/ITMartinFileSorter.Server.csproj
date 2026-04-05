@@ -29,5 +29,60 @@
     <Folder Include="ffmpeg\" />
     <Folder Include="wwwroot\media_temp\" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Remove="wwwroot\media_temp\thumbnails\f9117f21-67c1-4cbc-84ee-993f07b0d318.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\e1852565-97d9-4005-95dd-d97c9ad8b6cc.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\e155ad8b-7e34-4ee0-b706-7de4ed9e0bb1.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\ddce4706-ef46-423a-a4c4-1f04aa5f7f96.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\dd3ab3a2-29ae-4be7-b4e5-7d06d2bfc8aa.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\d7f55781-fc5e-4495-8052-a37319130ebe.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\d06472fe-618d-426a-aa54-178f1baa2c05.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\cef44ff4-45de-42f8-ac6c-df4747ebaedb.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\c1c449e3-ccdd-4e74-b73c-0021227cb54d.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\bff3cd60-52e3-493a-9529-77470ab3f1f6.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\b4e885fc-783a-415e-811f-8f3ccf1df39b.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\b171da0a-0e5d-4c99-94b6-7f23e57d3a12.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\b039c928-fb14-489a-85a1-46ee64bbb815.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\ac1f6b43-b898-494c-ad46-3cff2ccee9e9.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\a838b692-203b-4352-ad1a-8f7d756f530c.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\a79236b6-062d-409f-a8c7-89b62e5c96d5.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\a5323d28-8d0e-415e-9e83-9bdf2aa6bb1e.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\a4d0a49e-fcaa-4e2c-8cde-e1b53a95476d.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\9a928596-2080-424f-b3cc-2512107ba2a0.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\98b9ebc8-ea95-4e90-9930-0ce501ea8a88.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\8e6efc7a-ef32-4c0e-887f-76c215af5733.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\8dece92c-8780-4a3e-a8c1-060399c26f05.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\86b4269d-460d-4895-936b-70793d079e73.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\806d87e2-2a44-4811-b267-8285b1f07bea.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\800cae09-9a3e-4754-b764-0eb2e2c2700b.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\7735c204-d6bb-4f88-ad00-a500a2b0cd39.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\771da4b8-3cf9-409b-88f9-fb1a5689ada2.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\71cb78b8-e223-4bfe-bd52-3b81a7453746.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\71c74596-430b-4d76-b448-6456e25fab93.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\715a6fca-2df4-4899-8588-dbaf1aeeef79.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\6dec7db9-8ee0-43b5-b2b5-b3b45667ac8c.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\6db07f4a-6c5d-46b5-8827-89ee2bc0f433.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\6bafa268-fdaf-417b-b324-37e145befe06.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\5882115e-612d-4ed0-aa73-d0cd9fc8c333.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\57a9be34-4061-475a-8090-f0bb0abbbd45.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\549c86cd-34e5-4959-a13d-61cac24f49d7.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\53efc778-19f2-4447-a3fa-ca3c7cc3be9a.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\44cf7d5f-13e4-41fa-b013-8612d29e3122.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\42a6c3fd-fff1-4940-ae0f-b58889f2433f.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\410cf6ec-15f0-4ede-989a-dc2a04d67f59.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\3fbffb1c-3c7f-4744-a773-6c860b886819.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\38058998-42c1-4143-8393-e0101995cbab.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\3722de65-f617-47b6-a047-39ab06dcb4d7.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\2ae533ae-8cea-4abc-a23f-348d01e33cd4.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\2aaf306e-6193-481e-9db0-31902a2ce1ac.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\18e7b25f-f4a4-4230-9a26-1ba2eb92ab64.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\155696ed-ebe5-4eca-9834-b1eed49b69c8.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\14adc934-eac3-4977-a2d3-cc6933810699.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\14a05dac-f573-4c07-b25b-e0fef9c45475.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\10ed7aa3-af9f-4b4c-9d5c-ec1f41f2fca3.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\10237549-d1ba-49ba-844e-b53ccd412b1b.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\1018d018-15f7-4400-be04-f5cde06e6743.jpg" />
+    <Content Remove="wwwroot\media_temp\thumbnails\083d1676-c1da-4d7f-8fcb-90a90562fee4.jpg" />
+  </ItemGroup>
 
 </Project>
