@@ -6,25 +6,43 @@ namespace ITMartinFileSorter.Infrastructure.FileSystem;
 
 public sealed class FileScanner : IFileScanner
 {
-    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    public static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".heic", ".heif", ".avif"
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp",
+        ".webp", ".tiff", ".tif", ".heic", ".heif", ".avif"
     };
 
-    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    public static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".mp4", ".mov", ".avi", ".mkv", ".wmv"
     };
 
-    private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
+    public static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".mp3", ".wav", ".flac", ".aac", ".ogg"
     };
 
-    private static readonly HashSet<string> DocumentExtensions = new(StringComparer.OrdinalIgnoreCase)
+    public static readonly HashSet<string> DocumentExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".pptx", ".csv"
+        ".pdf", ".doc", ".docx", ".txt",
+        ".xls", ".xlsx", ".ppt", ".pptx", ".csv"
     };
+
+    public static bool IsSupportedMedia(string path)
+    {
+        var extension = Path.GetExtension(path);
+
+        return ImageExtensions.Contains(extension) ||
+               VideoExtensions.Contains(extension) ||
+               AudioExtensions.Contains(extension) ||
+               DocumentExtensions.Contains(extension);
+    }
+
+    public static bool IsImage(string path)
+        => ImageExtensions.Contains(Path.GetExtension(path));
+
+    public static bool IsVideo(string path)
+        => VideoExtensions.Contains(Path.GetExtension(path));
 
     private readonly EnumerationOptions _options = new()
     {
@@ -33,9 +51,10 @@ public sealed class FileScanner : IFileScanner
         ReturnSpecialDirectories = false
     };
 
-    public IEnumerable<MediaFile> ScanFolder(string rootPath, Action<int, string>? onProgress = null)
+    public IEnumerable<MediaFile> ScanFolder(
+        string rootPath,
+        Action<int, string>? onProgress = null)
     {
-        // ⭐ CRITICAL SAFETY CHECK
         if (string.IsNullOrWhiteSpace(rootPath) ||
             !Directory.Exists(rootPath))
             yield break;
@@ -47,23 +66,7 @@ public sealed class FileScanner : IFileScanner
             index++;
             onProgress?.Invoke(index, file);
 
-            string extension;
-
-            try
-            {
-                extension = Path.GetExtension(file);
-            }
-            catch
-            {
-                continue;
-            }
-
-            var isImage = ImageExtensions.Contains(extension);
-            var isVideo = VideoExtensions.Contains(extension);
-            var isAudio = AudioExtensions.Contains(extension);
-            var isDocument = DocumentExtensions.Contains(extension);
-
-            if (!isImage && !isVideo && !isAudio && !isDocument)
+            if (!IsSupportedMedia(file))
                 continue;
 
             FileInfo info;
@@ -74,14 +77,15 @@ public sealed class FileScanner : IFileScanner
             }
             catch
             {
-                continue; // skip broken files
+                continue;
             }
 
             MediaType type =
-                isImage ? MediaType.Image :
-                isVideo ? MediaType.Video :
-                isAudio ? MediaType.Audio :
-                MediaType.Document;
+                IsImage(file) ? MediaType.Image :
+                IsVideo(file) ? MediaType.Video :
+                AudioExtensions.Contains(Path.GetExtension(file))
+                    ? MediaType.Audio
+                    : MediaType.Document;
 
             yield return new MediaFile(
                 fullPath: file,

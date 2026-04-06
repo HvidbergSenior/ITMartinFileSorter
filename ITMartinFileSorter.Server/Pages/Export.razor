@@ -1,11 +1,9 @@
 ﻿@page "/export"
 @using ITMartinFileSorter.Application.Services
-@using ITMartinFileSorter.Domain.Entities
-@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 @inject FastVideoBatchExportService FastVideoBatchExportService
-
+@inject ImageBatchExportService ImageBatchExportService
 <div class="container mt-4">
 
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -31,7 +29,6 @@
         </div>
 
         <div class="card-body">
-
             @foreach (var cat in CategoryOrder)
             {
                 var kept = DuplicateService.AllFiles
@@ -42,7 +39,6 @@
                 if (!kept.Any()) continue;
 
                 <div class="mb-3">
-
                     <div style="font-weight:600; color:@GetCategoryColor(cat)">
                         @GetCategoryIcon(cat) @cat (@kept.Count files)
                     </div>
@@ -55,17 +51,14 @@
                             📂 @yearGroup.Key (@yearGroup.Count())
                         </div>
                     }
-
                 </div>
             }
-
         </div>
     </div>
 
     @if (IsExporting)
     {
         <div class="alert alert-info">
-
             <strong>@CurrentStage</strong>
 
             <div class="progress mt-2">
@@ -97,7 +90,9 @@
     string CurrentStage = "";
 
     int ProgressPercent =>
-        TotalToExport == 0 ? 0 : (int)((double)ExportedCount / TotalToExport * 100);
+        TotalToExport == 0
+            ? 0
+            : (int)((double)ExportedCount / TotalToExport * 100);
 
     readonly MediaMainCategory[] CategoryOrder =
     {
@@ -148,6 +143,7 @@
         ExportedCount = 0;
         TotalToExport = files.Count;
         CurrentStage = "Copying files...";
+        CurrentExportFile = "";
 
         await InvokeAsync(StateHasChanged);
 
@@ -243,46 +239,52 @@
             CurrentStage = "Converting videos to MP4...";
             CurrentExportFile = "";
             ExportedCount = 0;
+            TotalToExport = 0;
 
             await InvokeAsync(StateHasChanged);
 
             await FastVideoBatchExportService.ConvertAllVideosAsync(
                 exportRoot,
-                (done, total, fileName) =>
+                async (done, total, fileName) =>
                 {
                     ExportedCount = done;
                     TotalToExport = total;
                     CurrentExportFile = fileName;
                     CurrentStage = "Converting videos to MP4...";
 
-                    InvokeAsync(StateHasChanged);
+                    await InvokeAsync(StateHasChanged);
                 });
+            CurrentStage = "Converting images to JPG...";
+            CurrentExportFile = "";
+            ExportedCount = 0;
+            TotalToExport = 0;
 
-            CurrentStage = "Export complete ✔";
+            await InvokeAsync(StateHasChanged);
+
+            await ImageBatchExportService.ConvertAllImagesAsync(
+                exportRoot,
+                async (done, total, fileName) =>
+                {
+                    ExportedCount = done;
+                    TotalToExport = total;
+                    CurrentExportFile = fileName;
+                    CurrentStage = "Converting images to JPG...";
+
+                    await InvokeAsync(StateHasChanged);
+                });
+            CurrentStage = "Finalizing library...";
             CurrentExportFile = "";
 
             await InvokeAsync(StateHasChanged);
 
-            // AUTO OPEN NEWEST VIDEO
-            var latestVideo = Directory
-                .GetFiles(exportRoot, "*.mp4", SearchOption.AllDirectories)
-                .OrderByDescending(File.GetLastWriteTime)
-                .FirstOrDefault();
+            // IMPORTANT: let filesystem settle
+            await Task.Delay(1000);
 
-            Console.WriteLine("===== AUTO OPEN DEBUG =====");
-            Console.WriteLine($"Export root: {exportRoot}");
-            Console.WriteLine($"Latest video: {latestVideo}");
+            CurrentStage = "Export complete ✔";
+            await InvokeAsync(StateHasChanged);
 
-            if (latestVideo != null)
-            {
-                Navigation.NavigateTo(
-                    $"/viewer?path={Uri.EscapeDataString(latestVideo)}",
-                    forceLoad: true);
-            }
-            else
-            {
-                Navigation.NavigateTo("/library", forceLoad: true);
-            }
+            // BEST UX: open library instead of random auto video
+            Navigation.NavigateTo("/library", forceLoad: true);
         }
         catch (Exception ex)
         {

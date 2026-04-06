@@ -1,21 +1,49 @@
 ﻿@page "/viewer"
 @using Microsoft.AspNetCore.WebUtilities
 @using System.Timers
+@using ITMartinFileSorter.Application.Services
+@using ITMartinFileSorter.Infrastructure.FileSystem
+
 @inject NavigationManager Navigation
 
-<div class="viewer-page">
+<div class="viewer-page"
+     style="padding:20px; background:black; min-height:100vh; color:white;">
 
-    <div class="viewer-toolbar">
-        <button class="btn btn-secondary" @onclick="PlayPrevious">
+    <div class="viewer-toolbar mb-3 d-flex gap-2 align-items-center">
+        <button class="btn btn-secondary"
+                @onclick="PlayPrevious"
+                disabled="@(Playlist.Count <= 1)">
             ⬅ Previous
         </button>
 
-        <button class="btn btn-danger" @onclick="PlayNext">
+        <button class="btn btn-danger"
+                @onclick="PlayNext"
+                disabled="@(Playlist.Count <= 1)">
             Next ➜
         </button>
+
+        @if (Playlist.Any())
+        {
+            <span class="ms-3">
+                @(CurrentIndex + 1) / @Playlist.Count
+            </span>
+        }
     </div>
 
-    @if (!string.IsNullOrEmpty(WebPath))
+    @if (!string.IsNullOrEmpty(FilePath))
+    {
+        <div class="mb-3">
+            <strong>@Path.GetFileName(FilePath)</strong>
+        </div>
+    }
+
+    @if (!Playlist.Any())
+    {
+        <div class="alert alert-warning">
+            No supported media found in this folder.
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(WebPath))
     {
         @if (IsVideo)
         {
@@ -30,9 +58,10 @@
         }
         else
         {
-            <img src="@WebPath"
+            <img @key="WebPath"
+                 src="@WebPath"
                  class="img-fluid rounded shadow"
-                 style="max-height:80vh" />
+                 style="max-height:80vh; max-width:100%;" />
         }
     }
 
@@ -50,22 +79,24 @@
 
     protected override void OnInitialized()
     {
-        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var query = QueryHelpers.ParseQuery(uri.Query);
-
-        if (query.TryGetValue("path", out var path))
+        try
         {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var query = QueryHelpers.ParseQuery(uri.Query);
+
+            if (!query.TryGetValue("path", out var path))
+                return;
+
             FilePath = Uri.UnescapeDataString(path!);
 
-            var folder = Path.GetDirectoryName(FilePath)!;
+            var folder = Path.GetDirectoryName(FilePath);
+
+            if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+                return;
 
             Playlist = Directory
-                .GetFiles(folder)
-                .Where(f =>
-                    f.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ||
-                    f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                    f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-                    f.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                .EnumerateFiles(folder)
+                .Where(FileScanner.IsSupportedMedia)
                 .OrderBy(x => x)
                 .ToList();
 
@@ -75,15 +106,11 @@
             if (CurrentIndex < 0)
                 CurrentIndex = 0;
 
-            Console.WriteLine("===== VIEWER PLAYLIST DEBUG =====");
-            Console.WriteLine($"Current file: {FilePath}");
-            Console.WriteLine($"Playlist count: {Playlist.Count}");
-            Console.WriteLine($"Current index: {CurrentIndex}");
-
-            foreach (var item in Playlist)
-                Console.WriteLine(item);
-
             LoadCurrentMedia();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Viewer init error: {ex}");
         }
     }
 
@@ -91,20 +118,42 @@
     {
         StopTimer();
 
+        if (!Playlist.Any())
+        {
+            WebPath = "";
+            return;
+        }
+
+        if (CurrentIndex < 0 || CurrentIndex >= Playlist.Count)
+            CurrentIndex = 0;
+
         FilePath = Playlist[CurrentIndex];
 
-        var exportRoot =
-            @"C:\Users\hvidb\Desktop\BillederIphone\Film\Exported";
+        // Build relative path from "Exported"
+        var exportedIndex = FilePath.IndexOf("Exported", StringComparison.OrdinalIgnoreCase);
 
-        WebPath = "/libraryfiles" +
-                  FilePath.Replace(exportRoot, "")
-                          .Replace("\\", "/");
+        if (exportedIndex < 0)
+        {
+            WebPath = "";
+            return;
+        }
 
-        var ext = Path.GetExtension(FilePath).ToLower();
+        var relativePath = FilePath[(exportedIndex + "Exported".Length)..]
+            .TrimStart('\\', '/')
+            .Replace("\\", "/");
 
-        IsVideo = ext == ".mp4";
+        WebPath = $"/libraryfiles/{relativePath}";
 
-        if (!IsVideo)
+        var ext = Path.GetExtension(FilePath).ToLowerInvariant();
+
+        IsVideo = FileScanner.VideoExtensions.Contains(ext);
+
+        Console.WriteLine("===== VIEWER DEBUG =====");
+        Console.WriteLine($"FilePath: {FilePath}");
+        Console.WriteLine($"WebPath: {WebPath}");
+        Console.WriteLine($"IsVideo: {IsVideo}");
+
+        if (!IsVideo && Playlist.Count > 1)
             StartTimer();
 
         InvokeAsync(StateHasChanged);
@@ -113,12 +162,10 @@
     private void StartTimer()
     {
         _slideshowTimer = new Timer(4000);
+
         _slideshowTimer.Elapsed += (_, _) =>
         {
-            InvokeAsync(() =>
-            {
-                PlayNext();
-            });
+            InvokeAsync(PlayNext);
         };
 
         _slideshowTimer.AutoReset = false;
@@ -134,7 +181,7 @@
 
     private void PlayNext()
     {
-        if (Playlist.Count == 0)
+        if (Playlist.Count <= 1)
             return;
 
         CurrentIndex++;
@@ -142,15 +189,12 @@
         if (CurrentIndex >= Playlist.Count)
             CurrentIndex = 0;
 
-        Console.WriteLine("===== NEXT CLICK =====");
-        Console.WriteLine($"New index: {CurrentIndex}");
-
         LoadCurrentMedia();
     }
 
     private void PlayPrevious()
     {
-        if (Playlist.Count == 0)
+        if (Playlist.Count <= 1)
             return;
 
         CurrentIndex--;

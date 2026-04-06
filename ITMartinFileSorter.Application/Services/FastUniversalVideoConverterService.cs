@@ -58,6 +58,9 @@ public class FastUniversalVideoConverterService
                 "-movflags +faststart " +
                 $"\"{outputPath}\"");
 
+            await WaitForOutputReady(outputPath);
+
+            CopyDates(inputPath, outputPath);
             Console.WriteLine("[FFMPEG] Stream copy success");
         }
         catch (Exception ex)
@@ -145,6 +148,30 @@ public class FastUniversalVideoConverterService
             {
                 Console.WriteLine($"[DELETE FAILED] {ex}");
             }
+        }
+    }
+    
+    private async Task WaitForOutputReady(string outputPath)
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            try
+            {
+                using var stream = File.Open(
+                    outputPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read);
+
+                if (stream.Length > 0)
+                    return;
+            }
+            catch
+            {
+                // still locked
+            }
+
+            await Task.Delay(250);
         }
     }
 }

@@ -1,30 +1,57 @@
 ﻿@page "/library"
 @using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Domain.Entities
+@using ITMartinFileSorter.Domain.Interfaces
+
 @inject IFileScanner FileScanner
 @inject ThumbnailService ThumbnailService
 @inject NavigationManager Navigation
+@inject DuplicateService DuplicateService
 
 <div class="library-page"
-     style="background:black; min-height:100vh; color:white;">
-    <div style="background:red; color:white; padding:20px;">
-        TEST BACKGROUND
-    </div>
-    <div class="library-header">
+     style="background:black; min-height:100vh; color:white; padding:20px;">
+
+    <div class="library-header mb-4">
         <h1>🎬 My Media Library</h1>
-        <p>Your movies, photos and memories</p>
+        <p>Browse your memories like Netflix</p>
     </div>
 
-    <div class="library-toolbar">
-        <input class="search-box"
-               @bind="LibraryPath"
-               placeholder="Folder path..." />
-
-        <button class="load-btn" @onclick="LoadLibrary">
-            Refresh
+    <div class="mb-3">
+        <button class="btn btn-secondary"
+                @onclick="GoBack"
+                disabled="@(!CanGoBack)">
+            ⬅ Back
         </button>
     </div>
 
+    <div class="mb-3">
+        <strong>📍 Current folder:</strong>
+        <div>@CurrentPath</div>
+    </div>
+
+    @if (!Folders.Any() && !Files.Any())
+    {
+        <div class="alert alert-warning">
+            No media found in this folder.
+        </div>
+    }
+
+    <h3>📁 Folders</h3>
+    <div class="folder-grid">
+        @foreach (var folder in Folders)
+        {
+            <div class="folder-card"
+                 @onclick="() => OpenFolder(folder.FullPath)">
+                <div class="folder-icon">📁</div>
+                <div class="folder-name">@folder.Name</div>
+                <div class="folder-count">@folder.FileCount files</div>
+            </div>
+        }
+    </div>
+
+    <hr class="my-4" />
+
+    <h3>🎥 Media</h3>
     <div class="media-grid">
         @foreach (var file in Files)
         {
@@ -43,10 +70,6 @@
                     </div>
                 }
 
-                <div class="media-overlay">
-                    ▶ Play
-                </div>
-
                 <div class="media-info">
                     <div class="media-title">@file.FileName</div>
                     <div class="media-type">@file.MainCategory</div>
@@ -54,46 +77,171 @@
             </div>
         }
     </div>
-
 </div>
 
+<style>
+    .folder-grid, .media-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 20px;
+    }
+
+    .folder-card, .media-card {
+        background: #1e1e1e;
+        border-radius: 12px;
+        padding: 15px;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+
+    .folder-card:hover, .media-card:hover {
+        transform: scale(1.03);
+    }
+
+    .folder-icon {
+        font-size: 48px;
+    }
+
+    .folder-name {
+        font-weight: bold;
+        margin-top: 10px;
+    }
+
+    .folder-count {
+        color: #999;
+        font-size: 14px;
+    }
+
+    .media-thumb {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
+
+    .media-placeholder {
+        height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+        background: #333;
+        border-radius: 8px;
+    }
+
+    .media-info {
+        margin-top: 10px;
+    }
+</style>
 
 @code {
-    private string LibraryPath =
-        @"C:\Users\hvidb\Desktop\BillederIphone\Film\Exported\Organized";
+    private string RootPath = "";
+    private string CurrentPath = "";
 
+    private List<FolderItem> Folders = new();
     private List<MediaFile> Files = new();
+
+    private bool CanGoBack =>
+        !string.Equals(CurrentPath, RootPath, StringComparison.OrdinalIgnoreCase);
 
     protected override void OnInitialized()
     {
-        LoadLibrary();
+        RootPath = Path.Combine(
+            DuplicateService.FolderPath,
+            "Exported");
+
+        LoadFolder(RootPath);
     }
 
-    private void LoadLibrary()
+    private void LoadFolder(string path)
     {
-        if (!Directory.Exists(LibraryPath))
-            return;
-
-        Files = FileScanner.ScanFolder(LibraryPath).ToList();
-
-        foreach (var file in Files)
+        try
         {
-            file.ThumbnailPath = ThumbnailService.GenerateThumbnail(file);
+            if (!Directory.Exists(path))
+                return;
+
+            CurrentPath = path;
+
+            Folders = Directory
+                .EnumerateDirectories(path)
+                .Select(folder => new FolderItem
+                {
+                    Name = Path.GetFileName(folder),
+                    FullPath = folder,
+                    FileCount = Directory
+                        .EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
+                        .Count()
+                })
+                .OrderBy(x => x.Name)
+                .ToList();
+
+            Files = FileScanner
+                .ScanFolder(path)
+                .Where(x =>
+                    string.Equals(
+                        Path.GetDirectoryName(x.FullPath),
+                        path,
+                        StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var file in Files)
+            {
+                file.ThumbnailPath =
+                    ThumbnailService.GenerateThumbnail(file);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Library load error: {ex}");
         }
 
         StateHasChanged();
     }
 
-    private void OpenFile(MediaFile file)
+    private void OpenFolder(string path)
     {
-        var path = file.FullPath;
+        LoadFolder(path);
+    }
 
-        var mp4Path = Path.ChangeExtension(path, ".mp4");
+    private void GoBack()
+    {
+        if (!CanGoBack)
+            return;
 
-        if (File.Exists(mp4Path))
-            path = mp4Path;
+        var parent = Directory.GetParent(CurrentPath);
+
+        if (parent != null)
+            LoadFolder(parent.FullName);
+    }
+
+    private async Task OpenFile(MediaFile file)
+    {
+        await WaitForFileReady(file.FullPath);
 
         Navigation.NavigateTo(
-            $"/viewer?path={Uri.EscapeDataString(path)}");
+            $"/viewer?path={Uri.EscapeDataString(file.FullPath)}");
+    }
+
+    private async Task WaitForFileReady(string path)
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            try
+            {
+                using var stream = File.Open(
+                    path,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read);
+
+                if (stream.Length > 0)
+                    return;
+            }
+            catch
+            {
+            }
+
+            await Task.Delay(300);
+        }
     }
 }
