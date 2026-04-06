@@ -18,8 +18,10 @@
                 @if (ShowThumbnail &&
                      !string.IsNullOrEmpty(File.ThumbnailPath))
                 {
-                    <img src="@File.ThumbnailPath"
-                         style="max-height:60px; max-width:100%; object-fit:contain;" />
+                        <img src="@File.ThumbnailPath"
+                    class="media-thumb"
+                    style="pointer-events:none;" />
+
                 }
                 else
                 {
