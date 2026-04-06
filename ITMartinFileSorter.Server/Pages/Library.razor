@@ -1,12 +1,15 @@
 ﻿@page "/library"
+@using Microsoft.AspNetCore.WebUtilities
 @using ITMartinFileSorter.Application.Services
 @using ITMartinFileSorter.Domain.Entities
+@using ITMartinFileSorter.Domain.Enums
 @using ITMartinFileSorter.Domain.Interfaces
+@using ITMartinFileSorter.Infrastructure.FileSystem
 
-@inject IFileScanner FileScanner
-@inject ThumbnailService ThumbnailService
 @inject NavigationManager Navigation
-@inject DuplicateService DuplicateService
+@inject IFileScanner Scanner
+@inject ThumbnailService ThumbnailService
+@inject IConfiguration Configuration
 
 <div class="library-page"
      style="background:black; min-height:100vh; color:white; padding:20px;">
@@ -16,7 +19,12 @@
         <p>Browse your memories like Netflix</p>
     </div>
 
-    <div class="mb-3">
+    <div class="mb-3 d-flex gap-2">
+        <button class="btn btn-outline-light"
+                @onclick="GoHome">
+            🏠 Home
+        </button>
+
         <button class="btn btn-secondary"
                 @onclick="GoBack"
                 disabled="@(!CanGoBack)">
@@ -40,12 +48,12 @@
     <div class="folder-grid">
         @foreach (var folder in Folders)
         {
-            <div class="folder-card"
-                 @onclick="() => OpenFolder(folder.FullPath)">
+            <button class="folder-card border-0 text-start"
+                    @onclick="() => OpenFolder(folder.FullPath)">
                 <div class="folder-icon">📁</div>
                 <div class="folder-name">@folder.Name</div>
                 <div class="folder-count">@folder.FileCount files</div>
-            </div>
+            </button>
         }
     </div>
 
@@ -146,9 +154,41 @@
 
     protected override void OnInitialized()
     {
+        var libraryRoot =
+            Configuration["MediaSettings:LibraryRoot"];
+
+        if (string.IsNullOrWhiteSpace(libraryRoot))
+        {
+            libraryRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+                "FileSorter");
+        }
+
         RootPath = Path.Combine(
-            DuplicateService.FolderPath,
-            "Exported");
+            libraryRoot,
+            "Exported",
+            "Organized");
+
+        Console.WriteLine("===== LIBRARY DEBUG =====");
+        Console.WriteLine($"RootPath: {RootPath}");
+        Console.WriteLine($"Exists: {Directory.Exists(RootPath)}");
+
+        if (!Directory.Exists(RootPath))
+            return;
+
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.TryGetValue("path", out var path))
+        {
+            var requestedPath = Uri.UnescapeDataString(path!);
+
+            if (Directory.Exists(requestedPath))
+            {
+                LoadFolder(requestedPath);
+                return;
+            }
+        }
 
         LoadFolder(RootPath);
     }
@@ -175,13 +215,25 @@
                 .OrderBy(x => x.Name)
                 .ToList();
 
-            Files = FileScanner
-                .ScanFolder(path)
-                .Where(x =>
-                    string.Equals(
-                        Path.GetDirectoryName(x.FullPath),
-                        path,
-                        StringComparison.OrdinalIgnoreCase))
+            Files = Directory
+                .EnumerateFiles(path)
+                .Where(FileScanner.IsSupportedMedia)
+                .Select(file =>
+                {
+                    var info = new FileInfo(file);
+                    var ext = Path.GetExtension(file);
+
+                    var type =
+                        FileScanner.VideoExtensions.Contains(ext)
+                            ? MediaType.Video
+                            : MediaType.Image;
+
+                    return new MediaFile(
+                        file,
+                        info.LastWriteTimeUtc,
+                        type,
+                        info.Length);
+                })
                 .ToList();
 
             foreach (var file in Files)
@@ -203,15 +255,31 @@
         LoadFolder(path);
     }
 
+    private void GoHome()
+    {
+        LoadFolder(RootPath);
+    }
+
     private void GoBack()
     {
+        if (string.IsNullOrWhiteSpace(CurrentPath))
+        {
+            LoadFolder(RootPath);
+            return;
+        }
+
         if (!CanGoBack)
             return;
 
         var parent = Directory.GetParent(CurrentPath);
 
-        if (parent != null)
-            LoadFolder(parent.FullName);
+        if (parent == null)
+        {
+            LoadFolder(RootPath);
+            return;
+        }
+
+        LoadFolder(parent.FullName);
     }
 
     private async Task OpenFile(MediaFile file)

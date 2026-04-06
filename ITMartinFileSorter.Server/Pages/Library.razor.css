@@ -6,15 +6,19 @@
     color: white;
 }
 
+/* HEADER */
 .library-page .library-header h1 {
     font-size: 2.5rem;
     font-weight: 700;
+    margin-bottom: 6px;
 }
 
 .library-page .library-header p {
     color: #b3b3b3;
+    margin-bottom: 24px;
 }
 
+/* TOOLBAR */
 .library-page .library-toolbar {
     display: flex;
     gap: 12px;
@@ -39,28 +43,90 @@
     font-weight: 600;
 }
 
+/* SECTION TITLES */
+.library-page h3 {
+    margin-bottom: 18px;
+    font-size: 1.3rem;
+}
+
+/* GRID SHARED */
+.library-page .folder-grid,
 .library-page .media-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 26px;
+    margin-bottom: 30px;
 }
 
+/* SHARED CARD STYLE */
+.library-page .folder-card,
 .library-page .media-card {
-    position: relative;
+    width: 100%;
+    border: none;
     background: #181818;
     border-radius: 22px;
     overflow: hidden;
     cursor: pointer;
     box-shadow: 0 12px 30px rgba(0,0,0,0.35);
     transition: transform 0.25s ease;
+    color: white;
+    text-align: left;
 }
 
+.library-page .folder-card:hover,
 .library-page .media-card:hover {
     transform: scale(1.03);
 }
 
+/* FOLDER CARD */
+.library-page .folder-card {
+    padding: 24px;
+}
+
+.library-page .folder-icon {
+    font-size: 64px;
+    margin-bottom: 12px;
+}
+
+.library-page .folder-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.library-page .folder-count {
+    font-size: 0.9rem;
+    color: #b3b3b3;
+}
+
+/* MEDIA CARD */
 .library-page .media-thumb {
     width: 100%;
     height: 240px;
     object-fit: cover;
+}
+
+.library-page .media-placeholder {
+    width: 100%;
+    height: 240px;
+    background: #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 72px;
+}
+
+.library-page .media-info {
+    padding: 16px;
+}
+
+.library-page .media-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.library-page .media-type {
+    font-size: 0.9rem;
+    color: #b3b3b3;
 }
