@@ -1,18 +1,14 @@
-﻿@page "/library"
+﻿
+@page "/library"
 @using Microsoft.AspNetCore.WebUtilities
 @using ITMartinFileSorter.Application.Services
-@using ITMartinFileSorter.Domain.Entities
-@using ITMartinFileSorter.Domain.Enums
-@using ITMartinFileSorter.Domain.Interfaces
-@using ITMartinFileSorter.Infrastructure.FileSystem
 
 @inject NavigationManager Navigation
 @inject IFileScanner Scanner
 @inject ThumbnailService ThumbnailService
 @inject IConfiguration Configuration
 
-<div class="library-page"
-     style="background:black; min-height:100vh; color:white; padding:20px;">
+<div class="library-page">
 
     <div class="library-header mb-4">
         <h1>🎬 My Media Library</h1>
@@ -20,8 +16,7 @@
     </div>
 
     <div class="mb-3 d-flex gap-2">
-        <button class="btn btn-outline-light"
-                @onclick="GoHome">
+        <button class="btn btn-outline-light" @onclick="GoHome">
             🏠 Home
         </button>
 
@@ -48,24 +43,23 @@
     <div class="folder-grid">
         @foreach (var folder in Folders)
         {
-            <button class="folder-card border-0 text-start"
-                    @onclick="() => OpenFolder(folder.FullPath)">
+            <div class="folder-card"
+                 role="button"
+                 tabindex="0"
+                 @onclick="() => OpenFolder(folder.FullPath)">
                 <div class="folder-icon">📁</div>
                 <div class="folder-name">@folder.Name</div>
                 <div class="folder-count">@folder.FileCount files</div>
-            </button>
+            </div>
         }
     </div>
-
-    <hr class="my-4" />
-
+    
     <h3>🎥 Media</h3>
     <div class="media-grid">
         @foreach (var file in Files)
         {
             <div class="media-card"
                  @onclick="() => OpenFile(file)">
-
                 @if (!string.IsNullOrEmpty(file.ThumbnailPath))
                 {
                     <img src="@file.ThumbnailPath"
@@ -74,7 +68,7 @@
                 else
                 {
                     <div class="media-placeholder">
-                        🎥
+                        🖼️
                     </div>
                 }
 
@@ -86,61 +80,6 @@
         }
     </div>
 </div>
-
-<style>
-    .folder-grid, .media-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 20px;
-    }
-
-    .folder-card, .media-card {
-        background: #1e1e1e;
-        border-radius: 12px;
-        padding: 15px;
-        cursor: pointer;
-        transition: transform 0.2s ease;
-    }
-
-    .folder-card:hover, .media-card:hover {
-        transform: scale(1.03);
-    }
-
-    .folder-icon {
-        font-size: 48px;
-    }
-
-    .folder-name {
-        font-weight: bold;
-        margin-top: 10px;
-    }
-
-    .folder-count {
-        color: #999;
-        font-size: 14px;
-    }
-
-    .media-thumb {
-        width: 100%;
-        height: 180px;
-        object-fit: cover;
-        border-radius: 8px;
-    }
-
-    .media-placeholder {
-        height: 180px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 48px;
-        background: #333;
-        border-radius: 8px;
-    }
-
-    .media-info {
-        margin-top: 10px;
-    }
-</style>
 
 @code {
     private string RootPath = "";
@@ -209,7 +148,7 @@
                     Name = Path.GetFileName(folder),
                     FullPath = folder,
                     FileCount = Directory
-                        .EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
+                        .EnumerateFiles(folder)
                         .Count()
                 })
                 .OrderBy(x => x.Name)
@@ -252,19 +191,21 @@
 
     private void OpenFolder(string path)
     {
-        LoadFolder(path);
+        Navigation.NavigateTo(
+            $"/library?path={Uri.EscapeDataString(path)}",
+            forceLoad: true);
     }
 
     private void GoHome()
     {
-        LoadFolder(RootPath);
+        Navigation.NavigateTo("/library", forceLoad: true);
     }
 
     private void GoBack()
     {
         if (string.IsNullOrWhiteSpace(CurrentPath))
         {
-            LoadFolder(RootPath);
+            Navigation.NavigateTo("/library", forceLoad: true);
             return;
         }
 
@@ -275,11 +216,13 @@
 
         if (parent == null)
         {
-            LoadFolder(RootPath);
+            Navigation.NavigateTo("/library", forceLoad: true);
             return;
         }
 
-        LoadFolder(parent.FullName);
+        Navigation.NavigateTo(
+            $"/library?path={Uri.EscapeDataString(parent.FullName)}",
+            forceLoad: true);
     }
 
     private async Task OpenFile(MediaFile file)
@@ -313,3 +256,4 @@
         }
     }
 }
+

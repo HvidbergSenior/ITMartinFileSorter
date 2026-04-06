@@ -1,132 +1,67 @@
-﻿.library-page {
+﻿
+.library-page {
+    background: black;
     min-height: 100vh;
-    width: 100%;
-    padding: 35px;
-    background: #0b0b0b;
     color: white;
+    padding: 20px;
 }
 
-/* HEADER */
-.library-page .library-header h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-}
-
-.library-page .library-header p {
-    color: #b3b3b3;
-    margin-bottom: 24px;
-}
-
-/* TOOLBAR */
-.library-page .library-toolbar {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 35px;
-}
-
-.library-page .search-box {
-    flex: 1;
-    padding: 14px 18px;
-    border-radius: 14px;
-    border: 1px solid #2a2a2a;
-    background: #1b1b1b;
-    color: white;
-}
-
-.library-page .load-btn {
-    padding: 14px 22px;
-    border-radius: 14px;
-    border: none;
-    background: #e50914;
-    color: white;
-    font-weight: 600;
-}
-
-/* SECTION TITLES */
-.library-page h3 {
-    margin-bottom: 18px;
-    font-size: 1.3rem;
-}
-
-/* GRID SHARED */
-.library-page .folder-grid,
-.library-page .media-grid {
+.folder-grid,
+.media-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 26px;
-    margin-bottom: 30px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
 }
 
-/* SHARED CARD STYLE */
-.library-page .folder-card,
-.library-page .media-card {
-    width: 100%;
-    border: none;
-    background: #181818;
-    border-radius: 22px;
-    overflow: hidden;
+.folder-card,
+.media-card {
+    background: #1e1e1e;
+    border-radius: 12px;
+    padding: 15px;
     cursor: pointer;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-    transition: transform 0.25s ease;
-    color: white;
-    text-align: left;
+    transition: transform 0.2s ease;
+    user-select: none;
+    outline: none;
 }
 
-.library-page .folder-card:hover,
-.library-page .media-card:hover {
-    transform: scale(1.03);
+.folder-card:hover,
+.media-card:hover {
+    transform: translateY(-4px);
 }
 
-/* FOLDER CARD */
-.library-page .folder-card {
-    padding: 24px;
+.folder-icon {
+    font-size: 48px;
 }
 
-.library-page .folder-icon {
-    font-size: 64px;
-    margin-bottom: 12px;
+.folder-name {
+    font-weight: bold;
+    margin-top: 10px;
 }
 
-.library-page .folder-name {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-bottom: 6px;
+.folder-count {
+    color: #999;
+    font-size: 14px;
 }
 
-.library-page .folder-count {
-    font-size: 0.9rem;
-    color: #b3b3b3;
-}
-
-/* MEDIA CARD */
-.library-page .media-thumb {
+.media-thumb {
     width: 100%;
-    height: 240px;
+    height: 180px;
     object-fit: cover;
+    border-radius: 8px;
 }
 
-.library-page .media-placeholder {
-    width: 100%;
-    height: 240px;
-    background: #2a2a2a;
+.media-placeholder {
+    height: 180px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 72px;
+    font-size: 48px;
+    background: #333;
+    border-radius: 8px;
 }
 
-.library-page .media-info {
-    padding: 16px;
+.media-info {
+    margin-top: 10px;
 }
 
-.library-page .media-title {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 6px;
-}
-
-.library-page .media-type {
-    font-size: 0.9rem;
-    color: #b3b3b3;
-}

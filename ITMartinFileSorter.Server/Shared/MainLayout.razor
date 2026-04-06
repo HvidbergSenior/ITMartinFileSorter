@@ -1,8 +1,7 @@
-﻿@inherits LayoutComponentBase
+﻿
+@inherits LayoutComponentBase
 
 <div class="app-shell">
-
-    <!-- Header -->
     <header class="app-header">
         <div class="header-title">
             🎬 ITMartins FileSorter
@@ -15,75 +14,11 @@
         </nav>
     </header>
 
-    <!-- Body -->
     <main class="app-main">
         @Body
     </main>
 
-    <!-- Footer -->
     <footer class="app-footer">
         &copy; @DateTime.Now.Year FileSorter
     </footer>
 </div>
-
-<style>
-    body {
-        margin: 0;
-        background: #0b0b0b !important;
-        color: white;
-    }
-
-    .app-shell {
-        min-height: 100vh;
-        background: #0b0b0b;
-        color: white;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .app-header {
-        background: #121212;
-        padding: 18px 30px;
-        border-bottom: 1px solid #1f1f1f;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-    }
-
-    .header-title {
-        font-size: 1.4rem;
-        font-weight: 700;
-        letter-spacing: -0.3px;
-    }
-
-    .header-nav {
-        display: flex;
-        gap: 20px;
-    }
-
-    .nav-link {
-        color: #ddd;
-        text-decoration: none;
-        font-weight: 500;
-        transition: 0.2s ease;
-    }
-
-    .nav-link:hover {
-        color: white;
-    }
-
-    .app-main {
-        flex: 1;
-        padding: 0;
-        background: #0b0b0b;
-    }
-
-    .app-footer {
-        text-align: center;
-        padding: 16px;
-        color: #777;
-        border-top: 1px solid #1f1f1f;
-        background: #111;
-    }
-</style>

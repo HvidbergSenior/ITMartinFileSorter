@@ -28,6 +28,7 @@
   <ItemGroup>
     <Folder Include="ffmpeg\" />
     <Folder Include="wwwroot\media_temp\" />
+    <Folder Include="wwwroot\media_temp\thumbnails\" />
   </ItemGroup>
   <ItemGroup>
     <Content Remove="wwwroot\media_temp\thumbnails\f9117f21-67c1-4cbc-84ee-993f07b0d318.jpg" />
