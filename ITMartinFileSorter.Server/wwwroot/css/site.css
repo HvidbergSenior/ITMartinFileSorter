@@ -97,3 +97,19 @@ button.btn-primary { border-radius: 8px; }
     color: white !important;
 }
 
+/* GLOBAL INPUT THEME */
+.form-control {
+    background: #1c1c1c;
+    border: 1px solid #333;
+    color: white;
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-size: 1rem;
+}
+
+.form-control:focus {
+    background: #222;
+    color: white;
+    border-color: #666;
+    box-shadow: none;
+}

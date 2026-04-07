@@ -1,9 +1,11 @@
 ﻿
 .library-page {
-    background: black;
+    background: #0b0b0b;
     min-height: 100vh;
     color: white;
-    padding: 20px;
+    padding: 32px;
+    max-width: 1800px;
+    margin: 0 auto;
 }
 
 .folder-grid,
@@ -15,17 +17,17 @@
 }
 
 .folder-card,
-   .media-card {
-       background: #1e1e1e;
-       border-radius: 12px;
-       padding: 15px;
-       cursor: pointer;
-       transition: transform 0.2s ease;
-       user-select: none;
-       outline: none;
-       position: relative;
-       z-index: 5;
-   }
+.media-card {
+    background: #1e1e1e;
+    border-radius: 12px;
+    padding: 15px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    user-select: none;
+    outline: none;
+    position: relative;
+    z-index: 5;
+}
 
 
 .folder-card:hover,
@@ -94,3 +96,11 @@
     text-overflow: ellipsis;
 }
 
+.search-wrapper {
+    max-width: 900px;
+    margin: 0 auto 20px auto;
+}
+
+.search-container {
+    flex: 1;
+}
