@@ -57,25 +57,32 @@
 
     <h3>🎥 Media</h3>
 
-    <div style="border:1px solid red; padding:20px; margin-top:20px;">
-        <div>Files.Count = @Files.Count</div>
-
+    <div class="media-grid">
         @foreach (var file in Files)
         {
-            <div style="
-                margin-top:10px;
-                padding:15px;
-                background:#1e1e1e;
-                color:white;
-                border:1px solid #555;
-                cursor:pointer;"
+            <div class="media-card"
+                 role="button"
+                 tabindex="0"
                  @onclick="@(() => OpenFile(file))">
 
-                VIDEO FOUND: @Path.GetFileName(file.FullPath)
+                @if (!string.IsNullOrEmpty(file.ThumbnailPath))
+                {
+                    <img src="@file.ThumbnailPath"
+                         class="media-thumb" />
+                }
+                else
+                {
+                    <div class="media-placeholder">
+                        @(file.Type == MediaType.Video ? "🎬" : "🖼️")
+                    </div>
+                }
+
+                <div class="media-title">
+                    @Path.GetFileName(file.FullPath)
+                </div>
             </div>
         }
     </div>
-
 </div>
 
 @code {
@@ -139,56 +146,75 @@
     }
 
     private void LoadFolder(string path)
+{
+    try
     {
-        try
-        {
-            Folders.Clear();
-            Files.Clear();
+        Folders.Clear();
+        Files.Clear();
 
-            CurrentPath = path;
+        CurrentPath = path;
 
-            if (!Directory.Exists(path))
-                return;
+        if (!Directory.Exists(path))
+            return;
 
-            Folders = Directory
-                .EnumerateDirectories(path)
-                .Select(folder => new FolderItem
+        Folders = Directory
+            .EnumerateDirectories(path)
+            .Select(folder => new FolderItem
+            {
+                Name = Path.GetFileName(folder),
+                FullPath = folder,
+                FileCount = Directory
+                    .EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
+                    .Count(FileScanner.IsSupportedMedia)
+            })
+            .OrderBy(x => x.Name)
+            .ToList();
+
+        Files = Directory
+            .EnumerateFiles(path, "*.*", SearchOption.TopDirectoryOnly)
+            .Where(FileScanner.IsSupportedMedia)
+            .Select(file =>
+            {
+                var info = new FileInfo(file);
+
+                var type = FileScanner.IsVideo(file)
+                    ? MediaType.Video
+                    : FileScanner.IsImage(file)
+                        ? MediaType.Image
+                        : MediaType.Document;
+
+                var mediaFile = new MediaFile(
+                    file,
+                    info.LastWriteTimeUtc,
+                    type,
+                    info.Length);
+
+                // Only generate thumbnails for images for now
+                if (type == MediaType.Image)
                 {
-                    Name = Path.GetFileName(folder),
-                    FullPath = folder,
-                    FileCount = Directory
-                        .EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
-                        .Count(FileScanner.IsSupportedMedia)
-                })
-                .OrderBy(x => x.Name)
-                .ToList();
+                    try
+                    {
+                        mediaFile.ThumbnailPath =
+                            ThumbnailService.GenerateThumbnail(mediaFile);
+                    }
+                    catch
+                    {
+                        mediaFile.ThumbnailPath = null;
+                    }
+                }
 
-            Files = Directory
-                .EnumerateFiles(path, "*.*", SearchOption.TopDirectoryOnly)
-                .Where(FileScanner.IsSupportedMedia)
-                .Select(file =>
-                {
-                    var info = new FileInfo(file);
+                return mediaFile;
+            })
+            .ToList();
 
-                    var type = FileScanner.IsVideo(file)
-                        ? MediaType.Video
-                        : MediaType.Image;
-
-                    return new MediaFile(
-                        file,
-                        info.LastWriteTimeUtc,
-                        type,
-                        info.Length);
-                })
-                .ToList();
-
-            Console.WriteLine($"FILES SHOWN = {Files.Count}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-        }
+        Console.WriteLine($"FILES SHOWN = {Files.Count}");
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine("===== LOAD FOLDER ERROR =====");
+        Console.WriteLine(ex);
+    }
+}
 
     private void OpenFolder(string path)
     {

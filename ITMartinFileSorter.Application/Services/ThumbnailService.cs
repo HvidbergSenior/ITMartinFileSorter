@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using ITMartinFileSorter.Domain.Entities;
 using ITMartinFileSorter.Domain.Enums;
 using SixLabors.ImageSharp;
@@ -26,26 +28,28 @@ public class ThumbnailService
     {
         try
         {
-            var extension = ".jpg";
-            var fileName = $"{Guid.NewGuid()}{extension}";
+            if (!File.Exists(file.FullPath))
+                return null;
+
+            var fileName = GetThumbnailFileName(file.FullPath);
             var fullOutputPath = Path.Combine(_thumbnailRoot, fileName);
 
-            switch (file.Type)
-            {
-                case MediaType.Image:
-                    GenerateImageThumbnail(file.FullPath, fullOutputPath);
-                    break;
-
-                case MediaType.Video:
-                    GenerateVideoThumbnail(file.FullPath, fullOutputPath);
-                    break;
-
-                default:
-                    return null;
-            }
-
             if (!File.Exists(fullOutputPath))
-                return null;
+            {
+                switch (file.Type)
+                {
+                    case MediaType.Image:
+                        GenerateImageThumbnail(file.FullPath, fullOutputPath);
+                        break;
+
+                    case MediaType.Video:
+                        GenerateVideoThumbnail(file.FullPath, fullOutputPath);
+                        break;
+
+                    default:
+                        return null;
+                }
+            }
 
             return $"{_webThumbnailPath}/{fileName}";
         }
@@ -55,6 +59,17 @@ public class ThumbnailService
         }
     }
 
+    private string GetThumbnailFileName(string fullPath)
+    {
+        var cacheKey =
+            $"{fullPath}_{File.GetLastWriteTimeUtc(fullPath):O}";
+
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(cacheKey));
+
+        return Convert.ToHexString(hash) + ".jpg";
+    }
+
     private void GenerateImageThumbnail(string inputPath, string outputPath)
     {
         using var image = Image.Load(inputPath);
@@ -62,7 +77,7 @@ public class ThumbnailService
         image.Mutate(x =>
             x.Resize(new ResizeOptions
             {
-                Size = new Size(180, 180),
+                Size = new Size(320, 180),
                 Mode = ResizeMode.Max
             }));
 
@@ -83,7 +98,8 @@ public class ThumbnailService
 
         process.StartInfo.FileName = ffmpegPath;
         process.StartInfo.Arguments =
-            $"-y -i \"{inputPath}\" -ss 00:00:01 -vframes 1 -vf scale=180:-1 \"{outputPath}\"";
+            $"-y -ss 00:00:05 -i \"{inputPath}\" -vframes 1 -vf scale=320:-1 \"{outputPath}\"";
+
         process.StartInfo.CreateNoWindow = true;
         process.StartInfo.UseShellExecute = false;
         process.StartInfo.RedirectStandardError = true;

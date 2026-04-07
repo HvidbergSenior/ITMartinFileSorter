@@ -35,13 +35,6 @@ builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<ThumbnailService>();
 builder.Services.AddScoped<ArchivePathBuilder>();
 
-builder.Services.AddSingleton(new VideoThumbnailService(
-    Path.Combine(
-        Directory.GetCurrentDirectory(),
-        "wwwroot",
-        "media_temp")
-));
-
 builder.Services.AddControllers();
 
 var app = builder.Build();
