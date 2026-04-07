@@ -1,8 +1,9 @@
+using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.FileProviders;
 using ITMartinFileSorter.Application.Services;
 using ITMartinFileSorter.Domain.Interfaces;
 using ITMartinFileSorter.Infrastructure.FileSystem;
 using ITMartinFileSorter.Infrastructure.Services;
-using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,7 @@ builder.Services.AddScoped<FastVideoBatchExportService>();
 
 builder.Services.AddScoped<UniversalImageConverterService>();
 builder.Services.AddScoped<ImageBatchExportService>();
+builder.Services.AddScoped<SubtitleService>();
 
 builder.Services.AddScoped<HomeLocationService>();
 builder.Services.AddScoped<JunkDetectionService>();
@@ -56,23 +58,20 @@ var libraryRoot = builder.Configuration["MediaSettings:LibraryRoot"]
                       Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
                       "FileSorter");
 
-Console.WriteLine("===== MEDIA ROOT DEBUG =====");
-Console.WriteLine($"Library root: {libraryRoot}");
-
 var exportPath = Path.Combine(libraryRoot, "Exported");
 
-Console.WriteLine($"Export path: {exportPath}");
-Console.WriteLine($"Exists: {Directory.Exists(exportPath)}");
-
 Directory.CreateDirectory(exportPath);
+
+var contentTypeProvider = new FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".vtt"] = "text/vtt";
 
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(exportPath),
-    RequestPath = "/libraryfiles"
+    RequestPath = "/libraryfiles",
+    ContentTypeProvider = contentTypeProvider
 });
 
-Console.WriteLine("Static file mapping: /libraryfiles");
 app.UseRouting();
 
 app.MapControllers();

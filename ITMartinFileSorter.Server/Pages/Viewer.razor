@@ -1,9 +1,10 @@
 ﻿@page "/viewer"
 @using Microsoft.AspNetCore.WebUtilities
-@using System.Timers
 @using ITMartinFileSorter.Infrastructure.FileSystem
+@using ITMartinFileSorter.Application.Services
 
 @inject NavigationManager Navigation
+@inject SubtitleService SubtitleService
 
 <div class="viewer-page"
      style="padding:20px; background:black; min-height:100vh; color:white;">
@@ -32,6 +33,26 @@
             Next ➜
         </button>
 
+        @if (IsVideo)
+        {
+            <button class="btn btn-success"
+                    @onclick="GenerateQuickSubtitles"
+                    disabled="@IsGeneratingSubtitles">
+                @(IsGeneratingSubtitles
+                    ? "Generating..."
+                    : "🇩🇰 Quick subtitles")
+            </button>
+
+            <button class="btn btn-warning"
+                    @onclick="GeneratePremiumSubtitles"
+                    disabled="@IsGeneratingSubtitles">
+                @(IsGeneratingSubtitles
+                    ? "Generating..."
+                    : "🎬 Premium film subtitles")
+            </button>
+        }
+
+
         @if (Playlist.Any())
         {
             <span class="ms-3">
@@ -39,6 +60,21 @@
             </span>
         }
     </div>
+
+    @if (!string.IsNullOrEmpty(StatusMessage))
+    {
+        <div class="alert alert-info">
+            @StatusMessage
+        </div>
+    }
+    @if (IsGeneratingSubtitles)
+    {
+        <div class="alert alert-warning">
+            ⏳ Processing...
+            <br />
+            Elapsed: @ElapsedText
+        </div>
+    }
 
     @if (!string.IsNullOrEmpty(FilePath))
     {
@@ -56,8 +92,9 @@
     else if (!string.IsNullOrEmpty(WebPath))
     {
         @if (IsVideo)
-        {
-            <video @key="WebPath"
+        { 
+            
+            <video @key="@(WebPath + SubtitlePath)"
                    width="100%"
                    style="max-height:80vh"
                    controls
@@ -65,6 +102,16 @@
                    playsinline
                    preload="metadata">
                 <source src="@WebPath" type="video/mp4" />
+
+                @if (!string.IsNullOrEmpty(SubtitlePath))
+                {
+                    <track src="@SubtitlePath"
+                           kind="subtitles"
+                           srclang="da"
+                           label="Dansk"
+                           default />
+                }
+
                 Your browser does not support video playback.
             </video>
         }
@@ -82,74 +129,57 @@
 @code {
     private string FilePath = "";
     private string WebPath = "";
+    private string SubtitlePath = "";
+    private string StatusMessage = "";
+
     private bool IsVideo;
+    private bool IsGeneratingSubtitles;
 
     private List<string> Playlist = new();
     private int CurrentIndex = 0;
+    private System.Timers.Timer? _subtitleTimer;
+    private int _elapsedSeconds;
+    private string ElapsedText => TimeSpan
+        .FromSeconds(_elapsedSeconds)
+        .ToString(@"mm\:ss");
 
-    private Timer? _slideshowTimer;
 
     protected override void OnParametersSet()
     {
-        try
-        {
-            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-            var query = QueryHelpers.ParseQuery(uri.Query);
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
 
-            if (!query.TryGetValue("path", out var path))
-                return;
+        if (!query.TryGetValue("path", out var path))
+            return;
 
-            FilePath = Uri.UnescapeDataString(path!);
+        FilePath = Uri.UnescapeDataString(path!);
 
-            var folder = Path.GetDirectoryName(FilePath);
+        var folder = Path.GetDirectoryName(FilePath);
 
-            if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
-                return;
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+            return;
 
-            Playlist = Directory
-                .EnumerateFiles(folder)
-                .Where(FileScanner.IsSupportedMedia)
-                .OrderBy(x => x)
-                .ToList();
+        Playlist = Directory
+            .EnumerateFiles(folder)
+            .Where(FileScanner.IsSupportedMedia)
+            .OrderBy(x => x)
+            .ToList();
 
-            CurrentIndex = Playlist.FindIndex(f =>
-                string.Equals(f, FilePath, StringComparison.OrdinalIgnoreCase));
+        CurrentIndex = Playlist.FindIndex(f =>
+            string.Equals(f, FilePath, StringComparison.OrdinalIgnoreCase));
 
-            if (CurrentIndex < 0)
-                CurrentIndex = 0;
+        if (CurrentIndex < 0)
+            CurrentIndex = 0;
 
-            LoadCurrentMedia();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Viewer error: {ex}");
-        }
+        LoadCurrentMedia();
     }
 
     private void LoadCurrentMedia()
     {
-        StopTimer();
-
-        if (!Playlist.Any())
-        {
-            WebPath = "";
-            return;
-        }
-
-        if (CurrentIndex < 0 || CurrentIndex >= Playlist.Count)
-            CurrentIndex = 0;
-
         FilePath = Playlist[CurrentIndex];
 
-        var exportedIndex = FilePath.IndexOf(
-            "Exported",
+        var exportedIndex = FilePath.IndexOf("Exported",
             StringComparison.OrdinalIgnoreCase);
-
-        if (exportedIndex < 0)
-        {
-            WebPath = "";
-            return;
-        }
 
         var relativePath = FilePath[(exportedIndex + "Exported".Length)..]
             .TrimStart('\\', '/')
@@ -159,38 +189,100 @@
 
         IsVideo = FileScanner.IsVideo(FilePath);
 
-        Console.WriteLine("===== VIEWER DEBUG =====");
-        Console.WriteLine($"FilePath: {FilePath}");
-        Console.WriteLine($"WebPath: {WebPath}");
-        Console.WriteLine($"IsVideo: {IsVideo}");
+        LoadExistingSubtitle();
+    }
 
-        if (!IsVideo && Playlist.Count > 1)
+    private void LoadExistingSubtitle()
+    {
+        var subtitleFile = Path.ChangeExtension(FilePath, ".da.vtt");
+
+        if (!File.Exists(subtitleFile))
         {
-            StartTimer();
+            SubtitlePath = "";
+            return;
         }
 
-        InvokeAsync(StateHasChanged);
+        var exportedIndex = subtitleFile.IndexOf("Exported",
+            StringComparison.OrdinalIgnoreCase);
+
+        var relativePath =
+            subtitleFile[(exportedIndex + "Exported".Length)..]
+            .TrimStart('\\', '/')
+            .Replace("\\", "/");
+
+        SubtitlePath = $"/libraryfiles/{relativePath}";
     }
 
-    private void StartTimer()
+    private async Task GenerateQuickSubtitles()
     {
-        _slideshowTimer = new Timer(4000);
+        await GenerateSubtitles(false);
+    }
 
-        _slideshowTimer.Elapsed += (_, _) =>
+    private async Task GeneratePremiumSubtitles()
+    {
+        await GenerateSubtitles(true);
+    }
+
+    private async Task GenerateSubtitles(bool isLongFilm)
+    {
+        if (!IsVideo)
+            return;
+
+        IsGeneratingSubtitles = true;
+
+        StatusMessage = isLongFilm
+            ? "🎬 Generating premium subtitles for long film..."
+            : "🇩🇰 Generating quick subtitles...";
+
+        StateHasChanged();
+        _elapsedSeconds = 0;
+        StartSubtitleTimer();
+
+        var result =
+            await SubtitleService.GenerateDanishSubtitlesAsync(
+                FilePath,
+                isLongFilm);
+
+        StopSubtitleTimer();
+
+        if (!string.IsNullOrWhiteSpace(result))
         {
-            InvokeAsync(PlayNext);
+            LoadExistingSubtitle();
+            StatusMessage = "Subtitles ready 🇩🇰";
+        }
+        else
+        {
+            StatusMessage = "Subtitle generation failed";
+        }
+
+        IsGeneratingSubtitles = false;
+
+        await InvokeAsync(StateHasChanged);
+    }
+    private void StartSubtitleTimer()
+    {
+        StopSubtitleTimer();
+
+        _subtitleTimer = new System.Timers.Timer(1000);
+
+        _subtitleTimer.Elapsed += async (_, _) =>
+        {
+            _elapsedSeconds++;
+
+            await InvokeAsync(StateHasChanged);
         };
 
-        _slideshowTimer.AutoReset = false;
-        _slideshowTimer.Start();
+        _subtitleTimer.AutoReset = true;
+        _subtitleTimer.Start();
     }
 
-    private void StopTimer()
+    private void StopSubtitleTimer()
     {
-        _slideshowTimer?.Stop();
-        _slideshowTimer?.Dispose();
-        _slideshowTimer = null;
+        _subtitleTimer?.Stop();
+        _subtitleTimer?.Dispose();
+        _subtitleTimer = null;
     }
+
 
     private void PlayNext()
     {
@@ -227,19 +319,8 @@
     {
         var folder = Path.GetDirectoryName(FilePath);
 
-        if (string.IsNullOrWhiteSpace(folder))
-        {
-            Navigation.NavigateTo("/library", forceLoad: true);
-            return;
-        }
-
         Navigation.NavigateTo(
-            $"/library?path={Uri.EscapeDataString(folder)}",
+            $"/library?path={Uri.EscapeDataString(folder!)}",
             forceLoad: true);
-    }
-
-    public void Dispose()
-    {
-        StopTimer();
     }
 }
