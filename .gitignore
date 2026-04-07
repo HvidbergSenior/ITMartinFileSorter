@@ -74,4 +74,11 @@ desktop.ini
 *.tmp
 *.temp
 
-/ffmpeg/
+# Generated thumbnails / temp media
+ITMartinFileSorter.Server/wwwroot/media_temp/
+**/wwwroot/media_temp/
+**/thumbnails/
+
+# FFmpeg binaries
+**/ffmpeg/
+**/ffmpeg.exe
