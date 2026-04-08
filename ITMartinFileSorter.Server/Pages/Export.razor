@@ -4,8 +4,8 @@
 @inject NavigationManager Navigation
 @inject FastVideoBatchExportService FastVideoBatchExportService
 @inject ImageBatchExportService ImageBatchExportService
-<div class="container mt-4">
 
+<div class="export-page">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4>Export Organized Files</h4>
 
@@ -14,19 +14,16 @@
             Back
         </button>
     </div>
-
-    <div class="card mb-3">
-        <div class="card-header bg-light">Destination</div>
-        <div class="card-body">
-            Files will be organized into category + year folders
-            inside an <strong>Exported</strong> folder.
-        </div>
+    <div class="export-info-row">
+        <div class="export-chip">📁 Exported</div>
+        <div class="export-chip">📅 By year</div>
+        <div class="export-chip">🎬 MP4 + JPG</div>
     </div>
-
-    <div class="card mb-3">
-        <div class="card-header bg-light">
-            <strong>Export Structure Preview</strong>
-        </div>
+    
+        <div class="content-card mb-3">
+                <div class="export-preview-header">
+                <strong>Export Structure Preview</strong>
+            </div>
 
         <div class="card-body">
             @foreach (var cat in CategoryOrder)
@@ -39,13 +36,13 @@
                 if (!kept.Any()) continue;
 
                 <div class="mb-3">
-                    <div style="font-weight:600; color:@GetCategoryColor(cat)">
+                    <div>
                         @GetCategoryIcon(cat) @cat (@kept.Count files)
                     </div>
 
                     @foreach (var yearGroup in kept
-                        .GroupBy(f => f.Year)
-                        .OrderByDescending(g => g.Key))
+                                  .GroupBy(f => f.Year)
+                                  .OrderByDescending(g => g.Key))
                     {
                         <div class="ms-3">
                             📂 @yearGroup.Key (@yearGroup.Count())
@@ -62,8 +59,7 @@
             <strong>@CurrentStage</strong>
 
             <div class="progress mt-2">
-                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                     style="width:@ProgressPercent%">
+                <div class="progress-bar progress-bar-striped progress-bar-animated">
                     @ExportedCount / @TotalToExport
                 </div>
             </div>

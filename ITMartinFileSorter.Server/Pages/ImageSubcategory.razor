@@ -8,17 +8,14 @@
 
 <h3>@SubCategory</h3>
 
-<div class="d-flex flex-wrap gap-3">
-
+<div class="category-page">
     @foreach (var file in Files)
     {
-        <div class="file-card p-2 text-center"
-             style="width:150px; border:1px solid #ccc; border-radius:6px">
+        <div class="file-card p-2 text-center">
 
-            <img src="@file.WorkingPath"
-                 style="width:100%; height:100px; object-fit:cover;" />
+            <img src="@file.WorkingPath">
 
-            <div style="font-size:0.8em">
+            <div>
                 @file.FileName
             </div>
 

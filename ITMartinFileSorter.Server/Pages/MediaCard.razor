@@ -1,16 +1,8 @@
 ﻿@using ITMartinFileSorter.Application.Services
 @inject ThumbnailService ThumbnailService
 
-<div class="text-center p-2 d-flex flex-column"
-     style="
-     width:140px;
-     height:190px;
-     border:2px solid #ddd;
-     border-radius:8px;
-     background:#fff;
-     box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-
-    <div style="height:70px; display:flex; align-items:center; justify-content:center;">
+<div class="media-small-card">
+    <div>
         @switch (File.MainCategory)
         {
             case MediaMainCategory.Image:
@@ -19,38 +11,33 @@
                      !string.IsNullOrEmpty(File.ThumbnailPath))
                 {
                         <img src="@File.ThumbnailPath"
-                    class="media-thumb"
-                    style="pointer-events:none;" />
+                    class="media-thumb">
 
                 }
                 else
                 {
-                    <div style="font-size:32px;">🖼️</div>
+                    <div>🖼️</div>
                 }
                 break;
 
             case MediaMainCategory.Video:
-                <div style="font-size:32px;">🎬</div>
+                <div>🎬</div>
                 break;
 
             case MediaMainCategory.Audio:
-                <div style="font-size:32px;">🎵</div>
+                <div>🎵</div>
                 break;
 
             case MediaMainCategory.Document:
-                <div style="font-size:32px;">📄</div>
+                <div>📄</div>
                 break;
         }
     </div>
-    <div style="
-        font-size:0.75em;
-        word-break:break-word;
-        height:40px;
-        overflow:hidden;">
+    <div>
         @File.FileName
     </div>
 
-    <div style="font-size:0.65em; color:#666;">
+    <div>
         @FormatSize(File.SizeBytes)
     </div>
 

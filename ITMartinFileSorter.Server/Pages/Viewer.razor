@@ -6,8 +6,7 @@
 @inject NavigationManager Navigation
 @inject SubtitleService SubtitleService
 
-<div class="viewer-page"
-     style="padding:20px; background:black; min-height:100vh; color:white;">
+<div class="viewer-page">
 
     <div class="viewer-toolbar mb-3 d-flex gap-2 align-items-center">
 
@@ -93,10 +92,9 @@
     {
         @if (IsVideo)
         { 
-            
-            <video @key="@(WebPath + SubtitlePath)"
+            <video class="viewer-video" 
+                   @key="@(WebPath + SubtitlePath)"
                    width="100%"
-                   style="max-height:80vh"
                    controls
                    autoplay
                    playsinline
@@ -117,10 +115,10 @@
         }
         else
         {
-            <img @key="WebPath"
+            <img class="viewer-image" 
+                 @key="WebPath"
                  src="@WebPath"
-                 class="img-fluid rounded shadow"
-                 style="max-height:80vh; max-width:100%;" />
+                 />
         }
     }
 

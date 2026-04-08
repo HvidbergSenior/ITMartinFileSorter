@@ -1,11 +1,8 @@
 ﻿@using System.Globalization
-@using ITMartinFileSorter.Application.Services
-@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 
-<div class="card">
-
-    <div class="card-header bg-light">
+<div class="content-card">
+        <div class="export-preview-header">
         <strong>Export Preview</strong>
     </div>
 
@@ -24,8 +21,7 @@
             <div class="mb-4">
 
                 <!-- CATEGORY HEADER -->
-                <div class="d-flex align-items-center gap-2 mb-2"
-                     style="font-weight:600; color:@GetCategoryColor(cat); font-size:1.05rem;">
+                <div class="d-flex align-items-center gap-2 mb-2">
 
                     <span>@GetCategoryIcon(cat)</span>
                     <span>@cat</span>
@@ -54,7 +50,7 @@
                     <div class="ms-3 mb-3">
 
                         <!-- MONTH HEADER -->
-                        <div style="font-weight:500;">
+                        <div>
                             📂 @folderName
                             <span class="text-muted">
                                 (@monthGroup.Count())
@@ -62,8 +58,7 @@
                         </div>
 
                         <!-- SAMPLE FILES -->
-                        <div class="ms-4 text-muted"
-                             style="font-size:0.85rem;">
+                        <div class="ms-4 text-muted">
 
                             @foreach (var file in monthGroup.Take(3))
                             {
@@ -116,4 +111,5 @@
         MediaMainCategory.Document => "📄",
         _ => "📁"
     };
+}
 }

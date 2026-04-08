@@ -41,8 +41,7 @@
             {
                 <!-- 🟢 PROCESSING MODE -->
                 <div class="progress mt-2">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated"
-                         style="width:@Progress.Info.Percent%">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated">
                         @($"{Progress.Info.Percent:F1}%")
                     </div>
                 </div>
@@ -95,35 +94,38 @@
     {
         <h4>File Summary</h4>
 
-        <div class="main-category-row mt-3 d-flex gap-3">
+            <div class="main-category-row mt-3">
+                @foreach (var cat in CategoryOrder)
+                {
+                    var filesInCat = DuplicateService.AllFiles
+                        .Where(f => f.MainCategory == cat)
+                        .ToList();
 
-            @foreach (var cat in CategoryOrder)
-            {
-                var filesInCat = DuplicateService.AllFiles
-                    .Where(f => f.MainCategory == cat)
-                    .ToList();
+                    var total = filesInCat.Count;
+                    var remaining = filesInCat.Count(f => f.Status == MediaFileStatus.Initial);
+                    var kept = filesInCat.Count(f => f.Status == MediaFileStatus.ToKeep);
 
-                var remaining = filesInCat.Count(f => f.Status == MediaFileStatus.Initial);
-                var kept = filesInCat.Count(f => f.Status == MediaFileStatus.ToKeep);
+                    var isLocked = total == 0 || remaining == 0;
 
-                bool isCurrent = remaining > 0;
+                    <div class="main-category-box
+                @GetCategoryCssClass(cat)
+                @(isLocked ? "category-locked" : "category-active")"
+                         @onclick="() => OnCategoryClicked(cat, isLocked)">
 
-                <div class="main-category-box p-3 text-center"
-                     style="
-                        width:150px;
-                        border-radius:5px;
-                        cursor:@(isCurrent ? "pointer" : "not-allowed");
-                        background:@GetCategoryColor(cat);
-                        opacity:@(isCurrent ? "1" : "0.6")"
-                     @onclick="() => GoToCategory(cat)">
+                        <strong>@cat</strong>
 
-                    <strong>@cat</strong><br />
-                    Remaining: @remaining<br />
-                    Kept: @kept<br />
-                    Total: @filesInCat.Count<br />
-                    @FormatSize(filesInCat.Sum(f => f.SizeBytes))
-                </div>
-            }
+                        <div>Remaining: @remaining</div>
+                        <div>Kept: @kept</div>
+                        <div>Total: @total</div>
+                        <div>@FormatSize(filesInCat.Sum(f => f.SizeBytes))</div>
+
+                        <div class="category-status">
+                            @(total == 0 ? "🔒 Empty" :
+                            remaining == 0 ? "🔒 Done" :
+                            "▶ Handle")
+                        </div>
+                    </div>
+                }
             @{
                 var memes = DuplicateService.AllFiles
                     .Where(f => f.SubCategory == MediaSubCategory.Meme)
@@ -134,21 +136,21 @@
                     .ToList();
             }
 
-            <div class="main-category-box p-3 text-center"
-                 style="width:150px; border-radius:5px; background:#f8d7da;">
+            <div class="main-category-box"
+                 >
                 <strong>Memes</strong><br />
                 Total: @memes.Count<br />
                 @FormatSize(memes.Sum(f => f.SizeBytes))
             </div>
 
-            <div class="main-category-box p-3 text-center"
-                 style="width:150px; border-radius:5px; background:#d1ecf1;">
+            <div class="main-category-box"
+                 >
                 <strong>Screenshots</strong><br />
                 Total: @screenshots.Count<br />
                 @FormatSize(screenshots.Sum(f => f.SizeBytes))
             </div>
-            <div class="all-files-card p-3 text-center"
-                 style="width:150px; border:1px solid #ccc;">
+            <div class="all-files-card"
+                 >
                 <strong>Total</strong><br />
                 @DuplicateService.AllFiles.Count files<br />
                 @FormatSize(DuplicateService.AllFiles.Sum(f => f.SizeBytes))
@@ -159,22 +161,31 @@
         {
             <div class="mt-4">
 
-                <ExportPreview />
+                @if (AllCategoriesHandled)
+                {
+                    <div class="mt-4">
+                        <div class="alert alert-success">
+                            ✔ Ready for export
+                        </div>
 
-                <div class="mt-3">
-                    <button class="btn btn-success"
-                            @onclick="GoToExport">
-                        Export Organized Files
-                    </button>
-                </div>
-
+                        <div class="mt-3">
+                            <button class="btn btn-success"
+                                    @onclick="GoToExport">
+                                Export Organized Files
+                            </button>
+                        </div>
+                    </div>
+                }
             </div>
         }
     }
-    <button class="btn btn-dark mt-3"
-            @onclick="GoToLibrary">
-        Open Media Library
-    </button>
+    @if (!DuplicateService.AllFiles.Any() && !IsScanning)
+    {
+        <button class="btn btn-dark mt-3"
+                @onclick="GoToLibrary">
+            Open Media Library
+        </button>
+    }
 </div>
 
 @code {
@@ -229,15 +240,15 @@
         Navigation.NavigateTo($"/category-step/{cat.ToString().ToLower()}");
     }
 
-    string GetCategoryColor(MediaMainCategory cat) => cat switch
+    string GetCategoryCssClass(MediaMainCategory cat) => cat switch
     {
-        MediaMainCategory.Audio => "#28a745",
-        MediaMainCategory.Document => "#0d6efd",
-        MediaMainCategory.Image => "#ffc107",
-        MediaMainCategory.Video => "#dc3545",
-        _ => "#6c757d"
+        MediaMainCategory.Audio => "category-audio",
+        MediaMainCategory.Document => "category-document",
+        MediaMainCategory.Image => "category-image",
+        MediaMainCategory.Video => "category-video",
+        _ => ""
     };
-
+   
     string FormatSize(long bytes)
     {
         string[] sizes = { "B", "KB", "MB", "GB", "TB" };
@@ -263,7 +274,13 @@
 
         return $"{ts.Seconds}s";
     }
+    void OnCategoryClicked(MediaMainCategory cat, bool isLocked)
+    {
+        if (isLocked)
+            return;
 
+        GoToCategory(cat);
+    }
     void CancelScan()
     {
         DuplicateService.Cancel();
