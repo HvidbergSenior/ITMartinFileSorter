@@ -104,3 +104,11 @@
 .search-container {
     flex: 1;
 }
+
+.current-folder-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 18px;
+    color: white;
+    letter-spacing: 0.2px;
+}

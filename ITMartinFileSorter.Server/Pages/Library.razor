@@ -20,10 +20,7 @@
         <button class="btn btn-secondary" @onclick="GoBack" disabled="@(!CanGoBack)">⬅ Back</button>
     </div>
 
-    <div class="mb-3">
-        <strong>📍 Current folder:</strong>
-        <div>@CurrentPath</div>
-    </div>
+    <h2 class="mb-3">📁 @Path.GetFileName(CurrentPath)</h2>
 
     <div class="mb-4 d-flex gap-2 search-wrapper">
         <input type="text"
