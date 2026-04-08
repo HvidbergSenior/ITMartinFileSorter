@@ -34,15 +34,15 @@ public static class FileRenameService
         var ext = Path.GetExtension(file.FileName);
 
         return
-            $"{bestDate:yyyy-MM-dd}_{file.MainCategory}_{index:D3}{ext}";
+            $"{bestDate:yyyy-MM-dd} {file.MainCategory} {index:D3}{ext}";
     }
 
     private static string BuildDateOnlyName(MediaFile file, int index)
     {
         var bestDate = ImageMetadataHelper.GetBestDate(file.FullPath);
         var ext = Path.GetExtension(file.FileName);
-
         return
-            $"{bestDate:yyyy-MM-dd_HH-mm-ss}_{index:D3}{ext}";
+            $"{bestDate:yyyy-MM-dd HH-mm-ss} {index:D3}{ext}";
+        
     }
 }

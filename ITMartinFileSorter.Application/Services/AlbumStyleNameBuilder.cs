@@ -8,27 +8,23 @@ public static class AlbumStyleNameBuilder
 {
     public static string Build(MediaFile file, int index)
     {
-        var path = file.FullPath;
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
 
-        // ⭐ BEST DATE AVAILABLE
         var date =
-            ImageMetadataHelper.GetCreationTime(path) ??
-            VideoMetadataHelper.GetCreationTime(path) ??
+            ImageMetadataHelper.GetCreationTime(file.FullPath) ??
+            VideoMetadataHelper.GetCreationTime(file.FullPath) ??
             file.CreatedAt;
 
-        string monthYear = date.ToString("MMMMyyyy");
+        // Better sortable date
+        string datePart = date.ToString("yyyy-MM");
 
-        // ⭐ LOCATION
         string location = GetLocation(file);
 
-        // ⭐ TYPE
         string type = GetTypeLabel(file.SubCategory, file.MainCategory);
 
-        // ⭐ BUILD NAME
         var parts = new List<string>
         {
-            monthYear
+            datePart
         };
 
         if (!string.IsNullOrWhiteSpace(location))
@@ -39,7 +35,7 @@ public static class AlbumStyleNameBuilder
 
         parts.Add(index.ToString("D3"));
 
-        return string.Join("-", parts) + ext;
+        return string.Join(" ", parts) + ext;
     }
 
     private static string GetLocation(MediaFile file)
@@ -54,37 +50,58 @@ public static class AlbumStyleNameBuilder
             coords.Value.lng);
     }
 
-    private static string GetTypeLabel(MediaSubCategory sub)
+    private static string GetTypeLabel(
+        MediaSubCategory sub,
+        MediaMainCategory main)
     {
-        return sub switch
+        switch (sub)
         {
-            MediaSubCategory.Screenshot => "Screenshot",
-            MediaSubCategory.ScreenRecording => "ScreenRecording",
-            MediaSubCategory.PhonePhoto => "Photo",
-            MediaSubCategory.Camera => "Photo",
-            MediaSubCategory.OtherImage => "Image",
+            case MediaSubCategory.Screenshot:
+                return "Screenshot";
 
-            MediaSubCategory.PhoneVideo => "Video",
-            MediaSubCategory.Movie => "Movie",
-            MediaSubCategory.Clip => "Clip",
-            MediaSubCategory.OtherVideo => "Video",
+            case MediaSubCategory.ScreenRecording:
+                return "Screen Recording";
 
-            MediaSubCategory.Pdf => "PDF",
-            MediaSubCategory.Word => "Document",
-            MediaSubCategory.Excel => "Spreadsheet",
-            MediaSubCategory.Presentation => "Presentation",
-            MediaSubCategory.Text => "Text",
+            case MediaSubCategory.PhonePhoto:
+            case MediaSubCategory.Camera:
+            case MediaSubCategory.OtherImage:
+            case MediaSubCategory.UnknownImage:
+                return "Photo";
 
-            MediaSubCategory.Music => "Music",
-            MediaSubCategory.VoiceMemo => "VoiceMemo",
+            case MediaSubCategory.PhoneVideo:
+            case MediaSubCategory.Movie:
+            case MediaSubCategory.Clip:
+            case MediaSubCategory.OtherVideo:
+            case MediaSubCategory.UnknownVideo:
+                return "Video";
 
+            case MediaSubCategory.Pdf:
+                return "PDF";
+
+            case MediaSubCategory.Word:
+            case MediaSubCategory.Excel:
+            case MediaSubCategory.Presentation:
+            case MediaSubCategory.Text:
+            case MediaSubCategory.Csv:
+            case MediaSubCategory.UnknownDocument:
+                return "Document";
+
+            case MediaSubCategory.Music:
+            case MediaSubCategory.VoiceMemo:
+            case MediaSubCategory.UnknownAudio:
+                return "Audio";
+        }
+
+        return main switch
+        {
+            MediaMainCategory.Image => "Photo",
+            MediaMainCategory.Video => "Video",
+            MediaMainCategory.Document => "Document",
+            MediaMainCategory.Audio => "Audio",
             _ => "File"
         };
     }
 
-    /// <summary>
-    /// Ensures the filename is unique inside a folder.
-    /// </summary>
     public static string EnsureUnique(string folder, string fileName)
     {
         string fullPath = Path.Combine(folder, fileName);
@@ -99,7 +116,7 @@ public static class AlbumStyleNameBuilder
 
         while (true)
         {
-            string newName = $"{name}_{i}{ext}";
+            string newName = $"{name} ({i}){ext}";
             string newPath = Path.Combine(folder, newName);
 
             if (!File.Exists(newPath))
@@ -107,60 +124,5 @@ public static class AlbumStyleNameBuilder
 
             i++;
         }
-    }
-    private static string GetTypeLabel(MediaSubCategory sub, MediaMainCategory main)
-    {
-        // ⭐ Prefer specific types first
-        switch (sub)
-        {
-            // Images
-            case MediaSubCategory.Screenshot:
-                return "Screenshot";
-
-            case MediaSubCategory.ScreenRecording:
-                return "ScreenRecording";
-
-            case MediaSubCategory.PhonePhoto:
-            case MediaSubCategory.Camera:
-            case MediaSubCategory.OtherImage:
-            case MediaSubCategory.UnknownImage:
-                return "Photo";
-
-            // Videos
-            case MediaSubCategory.PhoneVideo:
-            case MediaSubCategory.Movie:
-            case MediaSubCategory.Clip:
-            case MediaSubCategory.OtherVideo:
-            case MediaSubCategory.UnknownVideo:
-                return "Video";
-
-            // Documents
-            case MediaSubCategory.Pdf:
-                return "PDF";
-
-            case MediaSubCategory.Word:
-            case MediaSubCategory.Excel:
-            case MediaSubCategory.Presentation:
-            case MediaSubCategory.Text:
-            case MediaSubCategory.Csv:
-            case MediaSubCategory.UnknownDocument:
-                return "Document";
-
-            // Audio
-            case MediaSubCategory.Music:
-            case MediaSubCategory.VoiceMemo:
-            case MediaSubCategory.UnknownAudio:
-                return "Audio";
-        }
-
-        // ⭐ FINAL fallback: main category
-        return main switch
-        {
-            MediaMainCategory.Image => "Photo",
-            MediaMainCategory.Video => "Video",
-            MediaMainCategory.Document => "Document",
-            MediaMainCategory.Audio => "Audio",
-            _ => "File"
-        };
     }
 }

@@ -159,7 +159,8 @@ public class ArchivePathBuilder
 
             monthName = char.ToUpper(monthName[0]) + monthName[1..];
 
-            parts.Add($"{year} {monthName}");
+            // ONLY month name
+            parts.Add(monthName);
         }
 
         if (options.UseTypeFolders)
