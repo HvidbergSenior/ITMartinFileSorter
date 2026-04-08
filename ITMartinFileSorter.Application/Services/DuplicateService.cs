@@ -2,6 +2,8 @@
 using ITMartinFileSorter.Domain.Entities;
 using ITMartinFileSorter.Domain.Enums;
 
+namespace ITMartinFileSorter.Application.Services;
+
 public class DuplicateService
 {
     public string FolderPath { get; set; } = "";

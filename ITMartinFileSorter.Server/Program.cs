@@ -28,6 +28,8 @@ builder.Services.AddScoped<FastVideoBatchExportService>();
 builder.Services.AddScoped<UniversalImageConverterService>();
 builder.Services.AddScoped<ImageBatchExportService>();
 builder.Services.AddScoped<SubtitleService>();
+builder.Services.AddScoped<FolderPathInfoService>();
+
 
 builder.Services.AddScoped<HomeLocationService>();
 builder.Services.AddScoped<JunkDetectionService>();

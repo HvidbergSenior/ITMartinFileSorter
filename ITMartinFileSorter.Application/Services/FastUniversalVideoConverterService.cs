@@ -1,92 +1,143 @@
 ﻿using System.Diagnostics;
+using System.Text.Json;
 
 namespace ITMartinFileSorter.Application.Services;
 
 public class FastUniversalVideoConverterService
 {
     private readonly string _ffmpegPath;
+    private readonly string _ffprobePath;
 
     public FastUniversalVideoConverterService()
     {
-        _ffmpegPath = Path.Combine(
-            AppContext.BaseDirectory,
-            "ffmpeg",
-            "ffmpeg.exe");
+        var ffmpegFolder = Path.Combine(AppContext.BaseDirectory, "ffmpeg");
 
-        Console.WriteLine($"FFmpeg path: {_ffmpegPath}");
-        Console.WriteLine($"FFmpeg exists: {File.Exists(_ffmpegPath)}");
+        _ffmpegPath = Path.Combine(ffmpegFolder, "ffmpeg.exe");
+        _ffprobePath = Path.Combine(ffmpegFolder, "ffprobe.exe");
     }
 
-    public bool NeedsConversion(string path)
-    {
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-
-        return ext is
-            ".avi" or ".mov" or ".mkv" or ".wmv" or
-            ".flv" or ".m4v" or ".3gp" or ".mpg" or ".mpeg";
-    }
-
-    public async Task<string?> ConvertToMp4FastAsync(
+    public async Task<string?> ConvertToUniversalMp4Async(
         string inputPath,
         string outputFolder)
     {
-        Console.WriteLine("===== DEBUG: CONVERTER =====");
-        Console.WriteLine($"Input: {inputPath}");
-
-        if (!NeedsConversion(inputPath))
-        {
-            Console.WriteLine("[CONVERT] Skipped");
-            return null;
-        }
-
         if (!File.Exists(_ffmpegPath))
             throw new FileNotFoundException("FFmpeg not found", _ffmpegPath);
+
+        if (!File.Exists(_ffprobePath))
+            throw new FileNotFoundException("FFprobe not found", _ffprobePath);
 
         Directory.CreateDirectory(outputFolder);
 
         var name = Path.GetFileNameWithoutExtension(inputPath);
-        var outputPath = Path.Combine(outputFolder, name + ".mp4");
+        var outputPath = Path.Combine(outputFolder, $"{name}_fixed.mp4");
+
+        var info = await GetCodecInfoAsync(inputPath);
+
+        Console.WriteLine($"Video codec: {info.VideoCodec}");
+        Console.WriteLine($"Audio codec: {info.AudioCodec}");
 
         try
         {
-            // FAST PATH: stream copy (very fast)
-            Console.WriteLine("[FFMPEG] Trying stream copy...");
-
-            await RunFfmpegAsync(
-                $"-y -i \"{inputPath}\" " +
-                "-c copy " +
-                "-movflags +faststart " +
-                $"\"{outputPath}\"");
-
-            await WaitForOutputReady(outputPath);
-
-            CopyDates(inputPath, outputPath);
-            Console.WriteLine("[FFMPEG] Stream copy success");
+            if (CanCopy(inputPath, info))
+            {
+                Console.WriteLine("[VIDEO] Fast copy / rewrap");
+                await CopyAsync(inputPath, outputPath);
+            }
+            else
+            {
+                Console.WriteLine("[VIDEO] Full re-encode");
+                await ReencodeAsync(inputPath, outputPath);
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FFMPEG] Stream copy failed: {ex.Message}");
-            Console.WriteLine("[FFMPEG] Falling back to re-encode...");
+            Console.WriteLine($"[VIDEO] Copy failed: {ex.Message}");
+            Console.WriteLine("[VIDEO] Falling back to full re-encode");
 
-            // FALLBACK: full conversion only if needed
-            await RunFfmpegAsync(
-                $"-y -i \"{inputPath}\" " +
-                "-c:v libx264 " +
-                "-preset veryfast " +
-                "-crf 23 " +
-                "-c:a aac " +
-                "-b:a 128k " +
-                "-movflags +faststart " +
-                $"\"{outputPath}\"");
-
-            Console.WriteLine("[FFMPEG] Re-encode success");
+            await ReencodeAsync(inputPath, outputPath);
         }
 
+        await WaitForOutputReady(outputPath);
         CopyDates(inputPath, outputPath);
 
-        TryDeleteOriginal(inputPath, outputPath);
-
         return outputPath;
+    }
+
+    private bool CanCopy(string inputPath, CodecInfo info)
+    {
+        var ext = Path.GetExtension(inputPath).ToLowerInvariant();
+
+        var containerOk = ext is ".mp4" or ".mov";
+        var videoOk = info.VideoCodec is "h264";
+        var audioOk = info.AudioCodec is "aac";
+
+        return containerOk && videoOk && audioOk;
+    }
+
+    private async Task<CodecInfo> GetCodecInfoAsync(string inputPath)
+    {
+        var arguments =
+            $"-v quiet -print_format json -show_streams \"{inputPath}\"";
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = _ffprobePath,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+
+        process.Start();
+
+        var json = await process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        using var doc = JsonDocument.Parse(json);
+
+        string? videoCodec = null;
+        string? audioCodec = null;
+
+        foreach (var stream in doc.RootElement.GetProperty("streams").EnumerateArray())
+        {
+            var codecType = stream.GetProperty("codec_type").GetString();
+            var codecName = stream.GetProperty("codec_name").GetString();
+
+            if (codecType == "video")
+                videoCodec = codecName;
+
+            if (codecType == "audio")
+                audioCodec = codecName;
+        }
+
+        return new CodecInfo(videoCodec, audioCodec);
+    }
+
+    private async Task CopyAsync(string inputPath, string outputPath)
+    {
+        await RunFfmpegAsync(
+            $"-y -i \"{inputPath}\" " +
+            "-c copy " +
+            "-movflags +faststart " +
+            $"\"{outputPath}\"");
+    }
+
+    private async Task ReencodeAsync(string inputPath, string outputPath)
+    {
+        await RunFfmpegAsync(
+            $"-y -i \"{inputPath}\" " +
+            "-c:v libx264 " +
+            "-preset veryfast " +
+            "-crf 18 " +
+            "-vf \"scale='min(1920,iw)':-2\" " +
+            "-pix_fmt yuv420p " +
+            "-c:a aac " +
+            "-b:a 192k " +
+            "-movflags +faststart " +
+            $"\"{outputPath}\"");
     }
 
     private async Task RunFfmpegAsync(string arguments)
@@ -106,20 +157,19 @@ public class FastUniversalVideoConverterService
 
         process.Start();
 
-        var errorTask = process.StandardError.ReadToEndAsync();
         var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
 
         await process.WaitForExitAsync();
 
-        var error = await errorTask;
         var output = await outputTask;
+        var error = await errorTask;
 
         Console.WriteLine(output);
         Console.WriteLine(error);
-        Console.WriteLine($"[FFMPEG EXIT] {process.ExitCode}");
 
         if (process.ExitCode != 0)
-            throw new Exception("FFmpeg failed");
+            throw new Exception($"FFmpeg failed:\n{error}");
     }
 
     private void CopyDates(string inputPath, string outputPath)
@@ -134,23 +184,6 @@ public class FastUniversalVideoConverterService
         File.SetLastWriteTime(outputPath, modified);
     }
 
-    private void TryDeleteOriginal(string inputPath, string outputPath)
-    {
-        if (File.Exists(outputPath) &&
-            !inputPath.Equals(outputPath, StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                File.Delete(inputPath);
-                Console.WriteLine($"[ORIGINAL DELETED] {inputPath}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[DELETE FAILED] {ex}");
-            }
-        }
-    }
-    
     private async Task WaitForOutputReady(string outputPath)
     {
         for (int i = 0; i < 20; i++)
@@ -174,4 +207,6 @@ public class FastUniversalVideoConverterService
             await Task.Delay(250);
         }
     }
+
+    private record CodecInfo(string? VideoCodec, string? AudioCodec);
 }

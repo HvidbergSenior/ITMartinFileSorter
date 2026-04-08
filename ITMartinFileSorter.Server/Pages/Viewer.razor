@@ -157,12 +157,13 @@
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
             return;
 
-        Playlist = Directory
-            .EnumerateFiles(folder)
-            .Where(FileScanner.IsSupportedMedia)
-            .OrderBy(x => x)
+        Playlist = FilterConvertedFiles(
+                Directory
+                    .EnumerateFiles(folder)
+                    .Where(FileScanner.IsSupportedMedia)
+                    .OrderBy(x => x))
             .ToList();
-
+        
         CurrentIndex = Playlist.FindIndex(f =>
             string.Equals(f, FilePath, StringComparison.OrdinalIgnoreCase));
 
@@ -320,5 +321,35 @@
         Navigation.NavigateTo(
             $"/library?path={Uri.EscapeDataString(folder!)}",
             forceLoad: true);
+    }
+    private IEnumerable<string> FilterConvertedFiles(
+        IEnumerable<string> files)
+    {
+        var list = files.ToList();
+
+        var convertedBaseNames = list
+            .Where(f =>
+                Path.GetFileNameWithoutExtension(f)
+                    .EndsWith("_fixed",
+                        StringComparison.OrdinalIgnoreCase))
+            .Select(f =>
+            {
+                var name = Path.GetFileNameWithoutExtension(f);
+                return name[..^6]; // remove "_fixed"
+            })
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return list.Where(file =>
+        {
+            var ext = Path.GetExtension(file).ToLowerInvariant();
+            var name = Path.GetFileNameWithoutExtension(file);
+
+            // hide original if converted exists
+            if (ext != ".mp4" &&
+                convertedBaseNames.Contains(name))
+                return false;
+
+            return true;
+        });
     }
 }

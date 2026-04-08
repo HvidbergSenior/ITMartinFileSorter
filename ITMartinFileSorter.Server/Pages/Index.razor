@@ -7,6 +7,9 @@
 @inject ProgressService Progress
 @inject NavigationManager Navigation
 @inject ThumbnailService ThumbnailService
+@inject IConfiguration Configuration
+@inject FolderPathInfoService FolderPathInfoService
+
 <div class="index-page">
     <!-- FOLDER INPUT -->
     <div class="folder-input d-flex mb-3">
@@ -21,7 +24,16 @@
             @(IsScanning ? "Scanning..." : "Scan")
         </button>
     </div>
-
+    @if (!string.IsNullOrWhiteSpace(PathInfo))
+    {
+        <div class="alert alert-info mt-2">
+            <strong>Folder info</strong><br />
+            @foreach (var line in PathInfo.Split('\n'))
+            {
+                <div>@line</div>
+            }
+        </div>
+    }
     <!-- 🔵 PROGRESS PANEL -->
     @if (ShowScanning)
     {
@@ -199,7 +211,7 @@
     bool IsScanning = false;
     string CurrentFileName = "";
     int FilesDiscovered = 0;
-
+    private string? PathInfo;
     readonly MediaMainCategory[] CategoryOrder =
     {
         MediaMainCategory.Audio,
@@ -248,7 +260,17 @@
         MediaMainCategory.Video => "category-video",
         _ => ""
     };
-   
+    private void CheckSelectedFolder(string selectedFolder)
+    {
+        var defaultPath =
+            Configuration["MediaSettings:LibraryRoot"];
+
+        PathInfo = FolderPathInfoService.GetPathInfo(
+            defaultPath,
+            selectedFolder);
+
+        StateHasChanged();
+    }
     string FormatSize(long bytes)
     {
         string[] sizes = { "B", "KB", "MB", "GB", "TB" };
@@ -290,137 +312,136 @@
         Navigation.NavigateTo("/library");
     }
     async Task ScanFolder()
+{
+    if (IsScanning) return;
+
+    var path = FolderPath;
+
+    if (string.IsNullOrWhiteSpace(path) ||
+        !Directory.Exists(path))
+        return;
+
+    // ⭐ NEW: show info immediately
+    CheckSelectedFolder(path);
+
+    IsScanning = true;
+    FilesDiscovered = 0;
+
+    DuplicateService.Reset();
+    DuplicateService.FolderPath = path;
+
+    await InvokeAsync(StateHasChanged);
+
+    DuplicateService.Cancellation = new CancellationTokenSource();
+    var token = DuplicateService.Cancellation.Token;
+
+    try
     {
-        if (IsScanning) return;
+        Progress.SetStage("Scanning files...");
+        Progress.Info.TotalWork = 0;
 
-        var path = FolderPath;
-
-        if (string.IsNullOrWhiteSpace(path) ||
-            !Directory.Exists(path))
-            return;
-
-        IsScanning = true;
-        FilesDiscovered = 0;
-
-        DuplicateService.Reset();
-        DuplicateService.FolderPath = path;
-
-        await InvokeAsync(StateHasChanged);
-
-        DuplicateService.Cancellation = new CancellationTokenSource();
-        var token = DuplicateService.Cancellation.Token;
-
-        try
+        var files = await Task.Run(() =>
         {
-            // 🔵 DISCOVERY PHASE
-            Progress.SetStage("Scanning files...");
-            Progress.Info.TotalWork = 0;
+            var list = new List<MediaFile>();
 
-            var files = await Task.Run(() =>
+            foreach (var file in FileScanner.ScanFolder(path))
             {
-                var list = new List<MediaFile>();
+                token.ThrowIfCancellationRequested();
 
-                foreach (var file in FileScanner.ScanFolder(path))
-                {
-                    token.ThrowIfCancellationRequested();
+                list.Add(file);
+                FilesDiscovered++;
 
-                    list.Add(file);
-                    FilesDiscovered++;
+                if (FilesDiscovered % 50 == 0)
+                    InvokeAsync(StateHasChanged);
+            }
 
-                    if (FilesDiscovered % 50 == 0)
-                        InvokeAsync(StateHasChanged);
-                }
+            return list;
+        }, token);
 
-                return list;
-            }, token);
+        var sizeGroups = files
+            .GroupBy(f => f.SizeBytes)
+            .Where(g => g.Count() > 1)
+            .ToList();
 
-            // 🟢 PROCESSING PHASE
+        var filesToHash = sizeGroups.Sum(g => g.Count());
 
-            var sizeGroups = files
-                .GroupBy(f => f.SizeBytes)
-                .Where(g => g.Count() > 1)
-                .ToList();
+        Progress.Start("Preparing files...", files.Count + filesToHash);
 
-            var filesToHash = sizeGroups.Sum(g => g.Count());
+        int prepCount = 0;
 
-            Progress.Start("Preparing files...", files.Count + filesToHash);
+        foreach (var file in files)
+        {
+            token.ThrowIfCancellationRequested();
 
-            int prepCount = 0;
+            CurrentFileName = file.FileName;
 
-            foreach (var file in files)
+            file.WorkingPath = file.FullPath;
+            file.Status = MediaFileStatus.Initial;
+
+            var bestDate =
+                file.MainCategory == MediaMainCategory.Video
+                    ? VideoMetadataHelper.GetCreationTime(file.FullPath)
+                      ?? ImageMetadataHelper.GetBestDate(file.FullPath)
+                    : ImageMetadataHelper.GetBestDate(file.FullPath);
+
+            file.Year = bestDate.Year;
+            file.Month = bestDate.Month;
+            file.CreatedAt = bestDate;
+
+            MediaCategorizer.Categorize(file);
+            Progress.Increment();
+
+            prepCount++;
+            if (prepCount % 50 == 0)
+                await InvokeAsync(StateHasChanged);
+        }
+
+        Progress.SetStage("Hashing duplicates...");
+
+        foreach (var group in sizeGroups)
+        {
+            foreach (var file in group)
             {
                 token.ThrowIfCancellationRequested();
 
                 CurrentFileName = file.FileName;
 
-                file.WorkingPath = file.FullPath;
-                file.Status = MediaFileStatus.Initial;
-
-// ⭐ FIX: use real date
-                var bestDate =
-                    file.MainCategory == MediaMainCategory.Video
-                        ? VideoMetadataHelper.GetCreationTime(file.FullPath)
-                          ?? ImageMetadataHelper.GetBestDate(file.FullPath)
-                        : ImageMetadataHelper.GetBestDate(file.FullPath);
-
-                file.Year = bestDate.Year;
-                file.Month = bestDate.Month;
-                file.CreatedAt = bestDate;
-
-                MediaCategorizer.Categorize(file);
-                Progress.Increment();
-
-                prepCount++;
-                if (prepCount % 50 == 0)
-                    await InvokeAsync(StateHasChanged);
-            }
-
-            Progress.SetStage("Hashing duplicates...");
-
-            foreach (var group in sizeGroups)
-            {
-                foreach (var file in group)
+                try
                 {
-                    token.ThrowIfCancellationRequested();
+                    var hash = await Task.Run(() =>
+                        HashService.ComputeHash(file.FullPath), token);
 
-                    CurrentFileName = file.FileName;
-
-                    try
-                    {
-                        var hash = await Task.Run(() =>
-                            HashService.ComputeHash(file.FullPath), token);
-
-                        file.SetHash(hash ?? $"{file.SizeBytes}_{file.FileName}");
-                    }
-                    catch
-                    {
-                        file.SetHash($"{file.SizeBytes}_{file.FileName}");
-                    }
-
-                    Progress.Increment();
+                    file.SetHash(hash ?? $"{file.SizeBytes}_{file.FileName}");
+                }
+                catch
+                {
+                    file.SetHash($"{file.SizeBytes}_{file.FileName}");
                 }
 
-                await InvokeAsync(StateHasChanged);
+                Progress.Increment();
             }
 
-            foreach (var file in files.Where(f => string.IsNullOrEmpty(f.Hash)))
-                file.SetHash($"{file.SizeBytes}_{file.FileName}");
-
-            DuplicateService.AllFiles = files;
-
-            Progress.SetStage("Building duplicate groups...");
-            DuplicateService.BuildDuplicateGroups();
-
-            Progress.Complete();
-        }
-        catch (OperationCanceledException)
-        {
-            Progress.SetStage("Cancelled");
-        }
-        finally
-        {
-            IsScanning = false;
             await InvokeAsync(StateHasChanged);
         }
+
+        foreach (var file in files.Where(f => string.IsNullOrEmpty(f.Hash)))
+            file.SetHash($"{file.SizeBytes}_{file.FileName}");
+
+        DuplicateService.AllFiles = files;
+
+        Progress.SetStage("Building duplicate groups...");
+        DuplicateService.BuildDuplicateGroups();
+
+        Progress.Complete();
     }
+    catch (OperationCanceledException)
+    {
+        Progress.SetStage("Cancelled");
+    }
+    finally
+    {
+        IsScanning = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}
 }

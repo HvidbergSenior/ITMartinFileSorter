@@ -58,9 +58,14 @@
         <div class="alert alert-info">
             <strong>@CurrentStage</strong>
 
-            <div class="progress mt-2">
-                <div class="progress-bar progress-bar-striped progress-bar-animated">
-                    @ExportedCount / @TotalToExport
+            <div class="progress mt-2" style="height: 24px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                     role="progressbar"
+                     style="width: @(Math.Min(ProgressPercent, 100))%;"
+                     aria-valuenow="@Math.Min(ProgressPercent, 100)"
+                     aria-valuemin="0"
+                     aria-valuemax="100">
+                    @Math.Min(ExportedCount, TotalToExport) / @TotalToExport
                 </div>
             </div>
 
@@ -86,10 +91,10 @@
     string CurrentStage = "";
 
     int ProgressPercent =>
-        TotalToExport == 0
+        TotalToExport <= 0
             ? 0
-            : (int)((double)ExportedCount / TotalToExport * 100);
-
+            : Math.Min(100,
+                (int)((double)ExportedCount / TotalToExport * 100));
     readonly MediaMainCategory[] CategoryOrder =
     {
         MediaMainCategory.Image,
@@ -120,12 +125,15 @@
 
     async Task StartExport()
     {
-        var files = DuplicateService.AllFiles
-            .Where(f => f.Status == MediaFileStatus.ToKeep)
-            .GroupBy(f => f.Hash ?? f.FullPath)
+        var files = DuplicateService.FilesToExport
+            .GroupBy(f => new
+            {
+                f.FileName,
+                f.SizeBytes,
+                Date = f.CreatedAt.Date
+            })
             .Select(g => g.First())
             .ToList();
-
         if (!files.Any())
             return;
 
@@ -235,8 +243,7 @@
             CurrentStage = "Converting videos to MP4...";
             CurrentExportFile = "";
             ExportedCount = 0;
-            TotalToExport = 0;
-
+            TotalToExport = 1;
             await InvokeAsync(StateHasChanged);
 
             await FastVideoBatchExportService.ConvertAllVideosAsync(
@@ -253,8 +260,8 @@
             CurrentStage = "Converting images to JPG...";
             CurrentExportFile = "";
             ExportedCount = 0;
-            TotalToExport = 0;
-
+            TotalToExport = 1;
+            
             await InvokeAsync(StateHasChanged);
 
             await ImageBatchExportService.ConvertAllImagesAsync(
@@ -270,15 +277,18 @@
                 });
             CurrentStage = "Finalizing library...";
             CurrentExportFile = "";
+            ExportedCount = 1;
+            TotalToExport = 1;
 
             await InvokeAsync(StateHasChanged);
-
             // IMPORTANT: let filesystem settle
             await Task.Delay(1000);
 
             CurrentStage = "Export complete ✔";
-            await InvokeAsync(StateHasChanged);
+            ExportedCount = 1;
+            TotalToExport = 1;
 
+            await InvokeAsync(StateHasChanged);
             // BEST UX: open library instead of random auto video
             Navigation.NavigateTo("/library", forceLoad: true);
         }

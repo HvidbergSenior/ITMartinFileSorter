@@ -14,7 +14,7 @@ public class FastVideoBatchExportService
         string exportRoot,
         Action<int, int, string>? progress = null)
     {
-        Console.WriteLine("===== DEBUG: BATCH START =====");
+        Console.WriteLine("===== BATCH START =====");
         Console.WriteLine($"Export root: {exportRoot}");
 
         if (string.IsNullOrWhiteSpace(exportRoot) ||
@@ -24,28 +24,12 @@ public class FastVideoBatchExportService
             return;
         }
 
-        var allFiles = Directory
+        var videoFiles = Directory
             .EnumerateFiles(exportRoot, "*.*", SearchOption.AllDirectories)
-            .ToList();
-
-        Console.WriteLine($"Total files found: {allFiles.Count}");
-
-        foreach (var f in allFiles.Take(20))
-        {
-            Console.WriteLine($"[BATCH FILE] {f}");
-        }
-
-        var videoFiles = allFiles
             .Where(IsVideoFile)
-            .Where(_converter.NeedsConversion)
             .ToList();
 
-        Console.WriteLine($"[BATCH] Videos after filter: {videoFiles.Count}");
-
-        foreach (var v in videoFiles.Take(20))
-        {
-            Console.WriteLine($"[BATCH VIDEO] {v}");
-        }
+        Console.WriteLine($"[BATCH] Videos found: {videoFiles.Count}");
 
         int total = videoFiles.Count;
         int current = 0;
@@ -58,14 +42,15 @@ public class FastVideoBatchExportService
 
             try
             {
-                var output = await _converter.ConvertToMp4FastAsync(file, folder);
+                var output = await _converter
+                    .ConvertToUniversalMp4Async(file, folder);
 
-                Console.WriteLine($"[BATCH] Done file: {file}");
+                Console.WriteLine($"[BATCH] Output: {output}");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[ERROR] {file}: {ex}");
-                throw; // 👈 IMPORTANT
+                continue;
             }
 
             var done = Interlocked.Increment(ref current);
@@ -78,12 +63,14 @@ public class FastVideoBatchExportService
 
         Console.WriteLine("[BATCH] All conversions done");
     }
+
     private static bool IsVideoFile(string path)
     {
         var ext = Path.GetExtension(path).ToLowerInvariant();
 
         return ext is
             ".avi" or ".mov" or ".mkv" or ".wmv" or
-            ".flv" or ".m4v" or ".3gp" or ".mpg" or ".mpeg";
+            ".flv" or ".m4v" or ".3gp" or ".mpg" or
+            ".mpeg" or ".mp4";
     }
 }
