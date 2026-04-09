@@ -48,10 +48,14 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 
-var libraryRoot = builder.Configuration["MediaSettings:LibraryRoot"]
-                  ?? Path.Combine(
-                      Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
-                      "FileSorter");
+var configuredRoot = builder.Configuration["MediaSettings:LibraryRoot"];
+
+var libraryRoot = !string.IsNullOrWhiteSpace(configuredRoot) &&
+                  Directory.Exists(Path.GetPathRoot(configuredRoot))
+    ? configuredRoot
+    : Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+        "FileSorter");
 
 var exportPath = Path.Combine(libraryRoot, "Exported");
 

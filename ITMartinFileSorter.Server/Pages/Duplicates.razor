@@ -1,14 +1,12 @@
 ﻿@page "/duplicates"
 @using ITMartinFileSorter.Application.Services
-@using ITMartinFileSorter.Domain.Entities
-@using ITMartinFileSorter.Domain.Enums
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 
 <div class="category-page">
-    <h4>Handle Duplicates</h4>
 
-    <div class="d-flex justify-content-between mb-3">
+    <ActionButtonBar>
+        <SectionTitle Title="Handle Duplicates" />
 
         <button class="btn btn-success"
                 @onclick="Continue"
@@ -20,80 +18,29 @@
                 @onclick="DeleteAllDuplicatesGlobally">
             Delete All (Keep Newest)
         </button>
-    </div>
+    </ActionButtonBar>
 
     @if (!DuplicateService.DuplicateGroups.Any())
     {
-        <div class="alert alert-success">
-            No duplicates found
-        </div>
+        <EmptyState
+            Message="No duplicates found"
+            Type="success" />
     }
     else
     {
         @foreach (var group in DuplicateService.CurrentPageGroups)
         {
-            <div class="border rounded p-3 mb-4">
-
+            <ContentCard Title="Duplicate Group">
                 <div class="d-flex gap-3 flex-wrap">
-
                     @foreach (var file in group)
                     {
-                        <div class="position-relative">
-
-                            <MediaCard File="file"
-                                       OnKeep="Keep"
-                                       ShowThumbnail="true" />
-                            @if (file.Status == MediaFileStatus.ToDelete)
-                            {
-                                <div class="text-danger text-center mt-1">
-                                    Delete
-                                </div>
-                            }
-                            else if (file.Status == MediaFileStatus.ToKeep)
-                            {
-                                <div class="text-success text-center mt-1">
-                                    Keep
-                                </div>
-                            }
-
-                            @if (file.Status == MediaFileStatus.Initial)
-                            {
-                                <button class="btn btn-sm btn-danger w-100 mt-1"
-                                        @onclick="() => Delete(file)">
-                                    Delete
-                                </button>
-                            }
-                        </div>
+                        <MediaCard File="file"
+                                   OnKeep="Keep"
+                                   ShowThumbnail="true" />
                     }
-
                 </div>
-
-                <button class="btn btn-sm btn-danger mt-3"
-                        @onclick="() => DeleteAllButOne(group)">
-                    Delete All But One
-                </button>
-            </div>
+            </ContentCard>
         }
-
-        <div class="d-flex justify-content-center gap-2 mt-3">
-
-            <button class="btn btn-secondary"
-                    disabled="@(DuplicateService.CurrentPage == 0)"
-                    @onclick="PrevPage">
-                Previous
-            </button>
-
-            <span>
-                Page @(DuplicateService.CurrentPage + 1)
-                of @DuplicateService.TotalPages
-            </span>
-
-            <button class="btn btn-secondary"
-                    disabled="@(DuplicateService.CurrentPage >= DuplicateService.TotalPages - 1)"
-                    @onclick="NextPage">
-                Next
-            </button>
-        </div>
     }
 
 </div>
@@ -141,6 +88,7 @@
     void Continue()
     {
         DuplicateService.DuplicatesHandled = true;
-        Navigation.NavigateTo("/");
+    Navigation.NavigateTo("/filesorter");
+        
     }
 }

@@ -3,8 +3,9 @@
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 
-<div class="category-page">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+<div class="page-container">
+
+    <ActionButtonBar>
         <button class="btn btn-primary"
                 @onclick="Continue"
                 disabled="@(!CanContinue)">
@@ -16,62 +17,46 @@
                 disabled="@(!FilesInCategory.Any())">
             Accept All
         </button>
-    </div>
+    </ActionButtonBar>
 
-    <h4>Step: @CurrentCategory</h4>
+    <SectionTitle Title="@($"Step: {CurrentCategory}")" />
 
     @if (!FilesInCategory.Any())
     {
-        <div class="alert alert-success">
-            All files in this category handled.
-        </div>
+        <EmptyState
+            Message="All files in this category handled."
+            Type="success" />
     }
     else if (CurrentCategory == MediaMainCategory.Audio)
     {
-        <div class="d-flex gap-3 flex-wrap mb-3">
-
-            @foreach (var group in AudioGroups)
-            {
-                <div class="p-3 border rounded">
-                    <strong>@group.Key</strong>
-                    <div class="text-muted">@group.Value.Count files</div>
-
-                    <div class="d-flex gap-2 flex-wrap mt-2">
-                        @foreach (var file in group.Value)
-                        {
-                            <MediaCard File="file"
-                                       OnKeep="Keep"
-                                       ShowThumbnail="false" />
-                        }
-                    </div>
-                </div>
-            }
-        </div>
-    }
-    else
-    {
-        @foreach (var yearGroup in YearGroups.Select((group, index) => new { group, index }))
+        @foreach (var group in AudioGroups)
         {
-            <div class="mb-4 p-3 border rounded">
-
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5>@yearGroup.group.Key</h5>
-
-                    <button class="btn btn-sm btn-success"
-                            @onclick="() => AcceptAll(yearGroup.group.Value)">
-                        Accept All Year
-                    </button>
-                </div>
-
-                <div class="d-flex flex-wrap gap-2 mt-3">
-                    @foreach (var file in yearGroup.group.Value)
+            <ContentCard Title="@group.Key">
+                <div class="file-grid">
+                    @foreach (var file in group.Value)
                     {
                         <MediaCard File="file"
                                    OnKeep="Keep"
                                    ShowThumbnail="false" />
                     }
                 </div>
-            </div>
+            </ContentCard>
+        }
+    }
+    else
+    {
+        @foreach (var yearGroup in YearGroups)
+        {
+            <ContentCard Title="@yearGroup.Key.ToString()">
+                <div class="file-grid">
+                    @foreach (var file in yearGroup.Value)
+                    {
+                        <MediaCard File="file"
+                                   OnKeep="Keep"
+                                   ShowThumbnail="false" />
+                    }
+                </div>
+            </ContentCard>
         }
     }
 
@@ -119,6 +104,8 @@
                 .GroupBy(f => f.Extension.ToLowerInvariant())
                 .OrderBy(g => g.Key)
                 .ToDictionary(g => g.Key, g => g.ToList());
+
+            YearGroups.Clear();
         }
         else
         {
@@ -126,6 +113,8 @@
                 .GroupBy(f => f.Year)
                 .OrderByDescending(g => g.Key)
                 .ToDictionary(g => g.Key, g => g.ToList());
+
+            AudioGroups.Clear();
         }
     }
 
@@ -143,16 +132,8 @@
         LoadFiles();
     }
 
-    void AcceptAll(List<MediaFile> files)
-    {
-        foreach (var file in files)
-            file.Status = MediaFileStatus.ToKeep;
-
-        LoadFiles();
-    }
-
     void Continue()
     {
-        Navigation.NavigateTo("/");
+        Navigation.NavigateTo("/filesorter");
     }
 }

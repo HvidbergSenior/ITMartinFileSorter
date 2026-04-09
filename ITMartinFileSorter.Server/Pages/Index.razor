@@ -1,447 +1,51 @@
 ﻿@page "/"
-@using ITMartinFileSorter.Application.Services
-@inject DuplicateService DuplicateService
-@inject IFileScanner FileScanner
-@inject IHashService HashService
-@inject MediaCategorizer MediaCategorizer
-@inject ProgressService Progress
 @inject NavigationManager Navigation
-@inject ThumbnailService ThumbnailService
-@inject IConfiguration Configuration
-@inject FolderPathInfoService FolderPathInfoService
+
+@using ITMartin.Shared.UI.Components
 
 <div class="index-page">
-    <!-- FOLDER INPUT -->
-    <div class="folder-input d-flex mb-3">
-        <input type="text"
-               @bind="FolderPath"
-               placeholder="Enter folder path..."
-               class="form-control me-2" />
 
-        <button class="btn btn-primary"
-                @onclick="ScanFolder"
-                disabled="@IsScanning">
-            @(IsScanning ? "Scanning..." : "Scan")
-        </button>
+    <SectionTitle Title="ITMartin Suite" />
+
+    <div class="main-category-row mt-4">
+
+        <ContentCard>
+            <h4>🎬 FileSorter</h4>
+            <p>Organize and export media files</p>
+
+            <button class="btn btn-primary mt-3"
+                    @onclick="GoToFileSorter">
+                Open
+            </button>
+        </ContentCard>
+
+        <ContentCard>
+            <h4>🎵 Chord Finder</h4>
+            <p>Detect chords from MP3 files</p>
+
+            <button class="btn btn-secondary mt-3"
+                    disabled>
+                Coming Soon
+            </button>
+        </ContentCard>
+
+        <ContentCard>
+            <h4>📦 Inventory</h4>
+            <p>Manage books, films and stock</p>
+
+            <button class="btn btn-secondary mt-3"
+                    disabled>
+                Coming Soon
+            </button>
+        </ContentCard>
+
     </div>
-    @if (!string.IsNullOrWhiteSpace(PathInfo))
-    {
-        <div class="alert alert-info mt-2">
-            <strong>Folder info</strong><br />
-            @foreach (var line in PathInfo.Split('\n'))
-            {
-                <div>@line</div>
-            }
-        </div>
-    }
-    <!-- 🔵 PROGRESS PANEL -->
-    @if (ShowScanning)
-    {
-        <div class="alert alert-info">
 
-            <strong>@Progress.Info.Stage</strong>
-
-            @if (Progress.Info.TotalWork == 0)
-            {
-                <!-- 🔵 DISCOVERY MODE -->
-                <div class="d-flex align-items-center gap-2 mt-2">
-                    <div class="spinner-border spinner-border-sm text-primary"></div>
-                    <span>@FilesDiscovered files found</span>
-                </div>
-            }
-            else
-            {
-                <!-- 🟢 PROCESSING MODE -->
-                <div class="progress mt-2">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated">
-                        @($"{Progress.Info.Percent:F1}%")
-                    </div>
-                </div>
-
-                <div class="mt-2">
-                    <div>
-                        @Progress.Info.WorkDone / @Progress.Info.TotalWork operations
-                    </div>
-
-                    @if (Progress.Info.SpeedPerSecond > 0)
-                    {
-                        <div>Speed: @($"{Progress.Info.SpeedPerSecond:F1} ops/sec")</div>
-                    }
-
-                    @if (Progress.Info.EstimatedRemaining != null)
-                    {
-                        <div>Remaining: @FormatTime(Progress.Info.EstimatedRemaining.Value)</div>
-                    }
-                </div>
-            }
-
-            @if (!string.IsNullOrEmpty(CurrentFileName))
-            {
-                <div class="mt-2">Current: @CurrentFileName</div>
-            }
-
-            <button class="btn btn-danger mt-2"
-                    @onclick="CancelScan">
-                Cancel
-            </button>
-
-        </div>
-    }
-
-    <!-- 🟡 DUPLICATE WARNING -->
-    @if (ShowDuplicateWarning)
-    {
-        <div class="alert alert-warning mt-2">
-            ⚠ You must handle duplicates before continuing
-
-            <button class="btn btn-sm btn-secondary ms-2"
-                    @onclick="GoToDuplicates">
-                Go to Duplicates
-            </button>
-        </div>
-    }
-
-    <!-- 🟢 SUMMARY -->
-    @if (ShowSummary)
-    {
-        <h4>File Summary</h4>
-
-            <div class="main-category-row mt-3">
-                @foreach (var cat in CategoryOrder)
-                {
-                    var filesInCat = DuplicateService.AllFiles
-                        .Where(f => f.MainCategory == cat)
-                        .ToList();
-
-                    var total = filesInCat.Count;
-                    var remaining = filesInCat.Count(f => f.Status == MediaFileStatus.Initial);
-                    var kept = filesInCat.Count(f => f.Status == MediaFileStatus.ToKeep);
-
-                    var isLocked = total == 0 || remaining == 0;
-
-                    <div class="main-category-box
-                @GetCategoryCssClass(cat)
-                @(isLocked ? "category-locked" : "category-active")"
-                         @onclick="() => OnCategoryClicked(cat, isLocked)">
-
-                        <strong>@cat</strong>
-
-                        <div>Remaining: @remaining</div>
-                        <div>Kept: @kept</div>
-                        <div>Total: @total</div>
-                        <div>@FormatSize(filesInCat.Sum(f => f.SizeBytes))</div>
-
-                        <div class="category-status">
-                            @(total == 0 ? "🔒 Empty" :
-                            remaining == 0 ? "🔒 Done" :
-                            "▶ Handle")
-                        </div>
-                    </div>
-                }
-            @{
-                var memes = DuplicateService.AllFiles
-                    .Where(f => f.SubCategory == MediaSubCategory.Meme)
-                    .ToList();
-
-                var screenshots = DuplicateService.AllFiles
-                    .Where(f => f.SubCategory == MediaSubCategory.Screenshot)
-                    .ToList();
-            }
-
-            <div class="main-category-box"
-                 >
-                <strong>Memes</strong><br />
-                Total: @memes.Count<br />
-                @FormatSize(memes.Sum(f => f.SizeBytes))
-            </div>
-
-            <div class="main-category-box"
-                 >
-                <strong>Screenshots</strong><br />
-                Total: @screenshots.Count<br />
-                @FormatSize(screenshots.Sum(f => f.SizeBytes))
-            </div>
-            <div class="all-files-card"
-                 >
-                <strong>Total</strong><br />
-                @DuplicateService.AllFiles.Count files<br />
-                @FormatSize(DuplicateService.AllFiles.Sum(f => f.SizeBytes))
-            </div>
-        </div>
-
-        @if (AllCategoriesHandled)
-        {
-            <div class="mt-4">
-
-                @if (AllCategoriesHandled)
-                {
-                    <div class="mt-4">
-                        <div class="alert alert-success">
-                            ✔ Ready for export
-                        </div>
-
-                        <div class="mt-3">
-                            <button class="btn btn-success"
-                                    @onclick="GoToExport">
-                                Export Organized Files
-                            </button>
-                        </div>
-                    </div>
-                }
-            </div>
-        }
-    }
-    @if (!DuplicateService.AllFiles.Any() && !IsScanning)
-    {
-        <button class="btn btn-dark mt-3"
-                @onclick="GoToLibrary">
-            Open Media Library
-        </button>
-    }
 </div>
 
 @code {
-
-    string FolderPath
+    private void GoToFileSorter()
     {
-        get => DuplicateService.FolderPath;
-        set => DuplicateService.FolderPath = value;
+        Navigation.NavigateTo("/filesorter");
     }
-
-    bool IsScanning = false;
-    string CurrentFileName = "";
-    int FilesDiscovered = 0;
-    private string? PathInfo;
-    readonly MediaMainCategory[] CategoryOrder =
-    {
-        MediaMainCategory.Audio,
-        MediaMainCategory.Document,
-        MediaMainCategory.Image,
-        MediaMainCategory.Video
-    };
-
-    bool ShowScanning => IsScanning;
-
-    bool ShowDuplicateWarning =>
-        !IsScanning &&
-        DuplicateService.AllFiles.Any() &&
-        !DuplicateService.DuplicatesHandled;
-
-    bool ShowSummary =>
-        !IsScanning &&
-        DuplicateService.AllFiles.Any() &&
-        DuplicateService.DuplicatesHandled;
-
-    bool AllCategoriesHandled =>
-        CategoryOrder.All(cat =>
-            !DuplicateService.AllFiles
-                .Any(f => f.MainCategory == cat &&
-                          f.Status == MediaFileStatus.Initial));
-
-    void GoToDuplicates() => Navigation.NavigateTo("/duplicates");
-    void GoToExport() => Navigation.NavigateTo("/export");
-
-    void GoToCategory(MediaMainCategory cat)
-    {
-        var hasRemaining = DuplicateService.AllFiles
-            .Any(f => f.MainCategory == cat &&
-                      f.Status == MediaFileStatus.Initial);
-
-        if (!hasRemaining) return;
-
-        Navigation.NavigateTo($"/category-step/{cat.ToString().ToLower()}");
-    }
-
-    string GetCategoryCssClass(MediaMainCategory cat) => cat switch
-    {
-        MediaMainCategory.Audio => "category-audio",
-        MediaMainCategory.Document => "category-document",
-        MediaMainCategory.Image => "category-image",
-        MediaMainCategory.Video => "category-video",
-        _ => ""
-    };
-    private void CheckSelectedFolder(string selectedFolder)
-    {
-        var defaultPath =
-            Configuration["MediaSettings:LibraryRoot"];
-
-        PathInfo = FolderPathInfoService.GetPathInfo(
-            defaultPath,
-            selectedFolder);
-
-        StateHasChanged();
-    }
-    string FormatSize(long bytes)
-    {
-        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-        double len = bytes;
-        int order = 0;
-
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len /= 1024;
-        }
-
-        return $"{len:0.#} {sizes[order]}";
-    }
-
-    string FormatTime(TimeSpan ts)
-    {
-        if (ts.TotalHours >= 1)
-            return $"{(int)ts.TotalHours}h {ts.Minutes}m";
-
-        if (ts.TotalMinutes >= 1)
-            return $"{ts.Minutes}m {ts.Seconds}s";
-
-        return $"{ts.Seconds}s";
-    }
-    void OnCategoryClicked(MediaMainCategory cat, bool isLocked)
-    {
-        if (isLocked)
-            return;
-
-        GoToCategory(cat);
-    }
-    void CancelScan()
-    {
-        DuplicateService.Cancel();
-    }
-    void GoToLibrary()
-    {
-        Navigation.NavigateTo("/library");
-    }
-    async Task ScanFolder()
-{
-    if (IsScanning) return;
-
-    var path = FolderPath;
-
-    if (string.IsNullOrWhiteSpace(path) ||
-        !Directory.Exists(path))
-        return;
-
-    // ⭐ NEW: show info immediately
-    CheckSelectedFolder(path);
-
-    IsScanning = true;
-    FilesDiscovered = 0;
-
-    DuplicateService.Reset();
-    DuplicateService.FolderPath = path;
-
-    await InvokeAsync(StateHasChanged);
-
-    DuplicateService.Cancellation = new CancellationTokenSource();
-    var token = DuplicateService.Cancellation.Token;
-
-    try
-    {
-        Progress.SetStage("Scanning files...");
-        Progress.Info.TotalWork = 0;
-
-        var files = await Task.Run(() =>
-        {
-            var list = new List<MediaFile>();
-
-            foreach (var file in FileScanner.ScanFolder(path))
-            {
-                token.ThrowIfCancellationRequested();
-
-                list.Add(file);
-                FilesDiscovered++;
-
-                if (FilesDiscovered % 50 == 0)
-                    InvokeAsync(StateHasChanged);
-            }
-
-            return list;
-        }, token);
-
-        var sizeGroups = files
-            .GroupBy(f => f.SizeBytes)
-            .Where(g => g.Count() > 1)
-            .ToList();
-
-        var filesToHash = sizeGroups.Sum(g => g.Count());
-
-        Progress.Start("Preparing files...", files.Count + filesToHash);
-
-        int prepCount = 0;
-
-        foreach (var file in files)
-        {
-            token.ThrowIfCancellationRequested();
-
-            CurrentFileName = file.FileName;
-
-            file.WorkingPath = file.FullPath;
-            file.Status = MediaFileStatus.Initial;
-
-            var bestDate =
-                file.MainCategory == MediaMainCategory.Video
-                    ? VideoMetadataHelper.GetCreationTime(file.FullPath)
-                      ?? ImageMetadataHelper.GetBestDate(file.FullPath)
-                    : ImageMetadataHelper.GetBestDate(file.FullPath);
-
-            file.Year = bestDate.Year;
-            file.Month = bestDate.Month;
-            file.CreatedAt = bestDate;
-
-            MediaCategorizer.Categorize(file);
-            Progress.Increment();
-
-            prepCount++;
-            if (prepCount % 50 == 0)
-                await InvokeAsync(StateHasChanged);
-        }
-
-        Progress.SetStage("Hashing duplicates...");
-
-        foreach (var group in sizeGroups)
-        {
-            foreach (var file in group)
-            {
-                token.ThrowIfCancellationRequested();
-
-                CurrentFileName = file.FileName;
-
-                try
-                {
-                    var hash = await Task.Run(() =>
-                        HashService.ComputeHash(file.FullPath), token);
-
-                    file.SetHash(hash ?? $"{file.SizeBytes}_{file.FileName}");
-                }
-                catch
-                {
-                    file.SetHash($"{file.SizeBytes}_{file.FileName}");
-                }
-
-                Progress.Increment();
-            }
-
-            await InvokeAsync(StateHasChanged);
-        }
-
-        foreach (var file in files.Where(f => string.IsNullOrEmpty(f.Hash)))
-            file.SetHash($"{file.SizeBytes}_{file.FileName}");
-
-        DuplicateService.AllFiles = files;
-
-        Progress.SetStage("Building duplicate groups...");
-        DuplicateService.BuildDuplicateGroups();
-
-        Progress.Complete();
-    }
-    catch (OperationCanceledException)
-    {
-        Progress.SetStage("Cancelled");
-    }
-    finally
-    {
-        IsScanning = false;
-        await InvokeAsync(StateHasChanged);
-    }
-}
 }

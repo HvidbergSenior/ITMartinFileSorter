@@ -8,8 +8,7 @@
 
 <div class="viewer-page">
 
-    <div class="viewer-toolbar mb-3 d-flex gap-2 align-items-center">
-
+    <ActionButtonBar>
         <button class="btn btn-outline-light"
                 @onclick="GoHome">
             🏠 Home
@@ -31,95 +30,43 @@
                 disabled="@(Playlist.Count <= 1)">
             Next ➜
         </button>
-
-        @if (IsVideo)
-        {
-            <button class="btn btn-success"
-                    @onclick="GenerateQuickSubtitles"
-                    disabled="@IsGeneratingSubtitles">
-                @(IsGeneratingSubtitles
-                    ? "Generating..."
-                    : "🇩🇰 Quick subtitles")
-            </button>
-
-            <button class="btn btn-warning"
-                    @onclick="GeneratePremiumSubtitles"
-                    disabled="@IsGeneratingSubtitles">
-                @(IsGeneratingSubtitles
-                    ? "Generating..."
-                    : "🎬 Premium film subtitles")
-            </button>
-        }
-
-
-        @if (Playlist.Any())
-        {
-            <span class="ms-3">
-                @(CurrentIndex + 1) / @Playlist.Count
-            </span>
-        }
-    </div>
+    </ActionButtonBar>
 
     @if (!string.IsNullOrEmpty(StatusMessage))
     {
-        <div class="alert alert-info">
-            @StatusMessage
-        </div>
+        <EmptyState
+            Message="@StatusMessage"
+            Type="info" />
     }
+
     @if (IsGeneratingSubtitles)
     {
-        <div class="alert alert-warning">
-            ⏳ Processing...
-            <br />
-            Elapsed: @ElapsedText
-        </div>
+        <ProgressPanel
+            Title="Generating subtitles..."
+            Current="@_elapsedSeconds"
+            Total="100"
+            Percent="@_elapsedSeconds"
+            CurrentItem="@ElapsedText" />
     }
 
     @if (!string.IsNullOrEmpty(FilePath))
     {
-        <div class="mb-3">
-            <strong>@Path.GetFileName(FilePath)</strong>
-        </div>
-    }
-
-    @if (!Playlist.Any())
-    {
-        <div class="alert alert-warning">
-            No supported media found in this folder.
-        </div>
-    }
-    else if (!string.IsNullOrEmpty(WebPath))
-    {
-        @if (IsVideo)
-        { 
-            <video class="viewer-video" 
-                   @key="@(WebPath + SubtitlePath)"
-                   width="100%"
-                   controls
-                   autoplay
-                   playsinline
-                   preload="metadata">
-                <source src="@WebPath" type="video/mp4" />
-
-                @if (!string.IsNullOrEmpty(SubtitlePath))
-                {
-                    <track src="@SubtitlePath"
-                           kind="subtitles"
-                           srclang="da"
-                           label="Dansk"
-                           default />
-                }
-
-                Your browser does not support video playback.
-            </video>
-        }
-        else
-        {
-            <img class="viewer-image" 
-                 @key="WebPath"
-                 src="@WebPath"
-                 />
-        }
+        <ContentCard Title="@Path.GetFileName(FilePath)">
+            @if (IsVideo)
+            {
+                <video class="viewer-video"
+                       width="100%"
+                       controls
+                       autoplay>
+                    <source src="@WebPath" type="video/mp4" />
+                </video>
+            }
+            else
+            {
+                <img class="viewer-image"
+                     src="@WebPath" />
+            }
+        </ContentCard>
     }
 
 </div>

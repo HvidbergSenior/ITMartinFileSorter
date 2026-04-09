@@ -10,86 +10,64 @@
 
 <div class="library-page">
 
-    <div class="library-header mb-4">
-        <h1>🎬 My Media Library</h1>
-        <p>Browse your memories like Netflix</p>
-    </div>
+    <SectionTitle Title="🎬 My Media Library" />
 
-    <div class="mb-3 d-flex gap-2">
-        <button class="btn btn-outline-light" @onclick="GoHome">🏠 Home</button>
-        <button class="btn btn-secondary" @onclick="GoBack" disabled="@(!CanGoBack)">⬅ Back</button>
-    </div>
+    <ActionButtonBar>
+        <button class="btn btn-outline-light"
+                @onclick="GoHome">
+            🏠 Home
+        </button>
 
-    <h2 class="mb-3">📁 @Path.GetFileName(CurrentPath)</h2>
+        <button class="btn btn-secondary"
+                @onclick="GoBack"
+                disabled="@(!CanGoBack)">
+            ⬅ Back
+        </button>
+    </ActionButtonBar>
 
-    <div class="mb-4 d-flex gap-2 search-wrapper">
-        <input type="text"
-               class="form-control search-container"
-               placeholder="🔍 Search entire library..."
-               value="@SearchText"
-               @oninput="OnSearchChanged" />
-        <button class="btn btn-outline-light" @onclick="ClearSearch">✖</button>
-    </div>
+    <FolderInputPanel
+        Value="@SearchText"
+        ValueChanged="OnSearchChangedText"
+        ButtonText="Search"
+        OnAction="RunRecursiveSearch" />
 
-    <div class="mb-3 d-flex gap-2 flex-wrap">
-        <button class="btn @(SelectedFilter == "all" ? "btn-primary" : "btn-outline-light")"
-                @onclick='() => SetFilter("all")'>All</button>
-        <button class="btn @(SelectedFilter == "video" ? "btn-primary" : "btn-outline-light")"
-                @onclick='() => SetFilter("video")'>🎬 Videos</button>
-        <button class="btn @(SelectedFilter == "image" ? "btn-primary" : "btn-outline-light")"
-                @onclick='() => SetFilter("image")'>🖼️ Photos</button>
-        <button class="btn @(SelectedFilter == "document" ? "btn-primary" : "btn-outline-light")"
-                @onclick='() => SetFilter("document")'>📄 Documents</button>
-    </div>
+    <ContentCard Title="Folders">
+        <div class="folder-grid">
+            @foreach (var folder in FilteredFolders)
+            {
+                <div class="folder-card"
+                     @onclick="@(() => OpenFolder(folder.FullPath))">
+                    📁 @folder.Name
+                </div>
+            }
+        </div>
+    </ContentCard>
 
-    <div class="mb-2 text-muted">
-        Showing @FilteredFolders.Count folders and @FilteredFiles.Count files
-    </div>
+    <ContentCard Title="Media">
+        <div class="media-grid">
+            @foreach (var file in FilteredFiles)
+            {
+                <div class="media-card"
+                     @onclick="@(() => OpenFile(file))">
 
-    @if (!FilteredFolders.Any() && !FilteredFiles.Any())
-    {
-        <div class="alert alert-warning">No matching media found.</div>
-    }
+                    @if (!string.IsNullOrEmpty(file.ThumbnailPath))
+                    {
+                        <img src="@file.ThumbnailPath"
+                             class="media-thumb" />
+                    }
+                    else
+                    {
+                        <div class="media-placeholder">
+                            🎬
+                        </div>
+                    }
 
-    <h3>📁 Folders</h3>
-    <div class="folder-grid">
-        @foreach (var folder in FilteredFolders)
-        {
-            <div class="folder-card"
-                 role="button"
-                 tabindex="0"
-                 @onclick="@(() => OpenFolder(folder.FullPath))">
-                <div class="folder-icon">📁</div>
-                <div class="folder-name">@folder.Name</div>
-                <div class="folder-count">@folder.FileCount files</div>
-            </div>
-        }
-    </div>
+                    <div>@Path.GetFileName(file.FullPath)</div>
+                </div>
+            }
+        </div>
+    </ContentCard>
 
-    <h3>🎥 Media</h3>
-    <div class="media-grid">
-        @foreach (var file in FilteredFiles)
-        {
-            <div class="media-card"
-                 role="button"
-                 tabindex="0"
-                 @onclick="@(() => OpenFile(file))">
-
-                @if (!string.IsNullOrEmpty(file.ThumbnailPath))
-                {
-                    <img src="@file.ThumbnailPath" class="media-thumb" />
-                }
-                else
-                {
-                    <div class="media-placeholder">
-                        @(file.Type == MediaType.Video ? "🎬" : "🖼️")
-                    </div>
-                }
-
-                <div class="media-title">@Path.GetFileName(file.FullPath)</div>
-            </div>
-        }
-    </div>
 </div>
 
 @code {
@@ -127,7 +105,10 @@
         LoadFromUrl();
         StateHasChanged();
     }
-
+    private void OnSearchChangedText(string value)
+    {
+        SearchText = value;
+    }
     private void LoadFromUrl()
     {
         var libraryRoot = Configuration["MediaSettings:LibraryRoot"];

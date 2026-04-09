@@ -8,12 +8,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\ITMartinSuite\ITMartin.Shared.UI\ITMartin.Shared.UI.csproj" />
     <ProjectReference Include="..\ITMartinFileSorter.Application\ITMartinFileSorter.Application.csproj" />
     <ProjectReference Include="..\ITMartinFileSorter.Domain\ITMartinFileSorter.Domain.csproj" />
     <ProjectReference Include="..\ITMartinFileSorter.Infrastructure\ITMartinFileSorter.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.25" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.25" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.25">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
 
