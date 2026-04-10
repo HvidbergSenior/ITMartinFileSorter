@@ -1,116 +1,25 @@
-﻿@using System.Globalization
-@using ITMartinFileSorter.Application.Services
+﻿@using ITMartinFileSorter.Application.Services
 @inject DuplicateService DuplicateService
 
 <div class="content-card">
-        <div class="export-preview-header">
-        <strong>Export Preview</strong>
+
+    <div class="export-preview-header">
+        <strong>Preview of exported structure</strong>
     </div>
 
     <div class="card-body">
 
-        @foreach (var cat in CategoryOrder)
+        <div>FilesToExport count: @DuplicateService.FilesToExport.Count()</div>
+
+        @foreach (var file in DuplicateService.FilesToExport)
         {
-            var kept = DuplicateService.AllFiles
-                .Where(f => f.MainCategory == cat &&
-                            f.Status == MediaFileStatus.ToKeep)
-                .ToList();
-
-            if (!kept.Any())
-                continue;
-
-            <div class="mb-4">
-
-                <!-- CATEGORY HEADER -->
-                <div class="d-flex align-items-center gap-2 mb-2">
-
-                    <span>@GetCategoryIcon(cat)</span>
-                    <span>@cat</span>
-                    <span class="text-muted">(@kept.Count files)</span>
-                </div>
-
-                <!-- MONTH FOLDERS -->
-                @foreach (var monthGroup in kept
-                    .GroupBy(f => new { f.Year, f.Month })
-                    .OrderByDescending(g => g.Key.Year)
-                    .ThenByDescending(g => g.Key.Month))
-                {
-                    var monthName = new DateTime(
-                            monthGroup.Key.Year,
-                            monthGroup.Key.Month,
-                            1)
-                        .ToString("MMMM", new CultureInfo("da-DK"));
-
-                    monthName =
-                        char.ToUpper(monthName[0]) +
-                        monthName[1..];
-
-                    var folderName =
-                        $"{monthGroup.Key.Year} {monthName}";
-
-                    <div class="ms-3 mb-3">
-
-                        <!-- MONTH HEADER -->
-                        <div>
-                            📂 @folderName
-                            <span class="text-muted">
-                                (@monthGroup.Count())
-                            </span>
-                        </div>
-
-                        <!-- SAMPLE FILES -->
-                        <div class="ms-4 text-muted">
-
-                            @foreach (var file in monthGroup.Take(3))
-                            {
-                                <div>📄 @file.FileName</div>
-                            }
-
-                            @if (monthGroup.Count() > 3)
-                            {
-                                <div>
-                                    … and @(monthGroup.Count() - 3) more
-                                </div>
-                            }
-
-                        </div>
-
-                    </div>
-                }
-
+            <div>
+                📄 @file.FileName
+                | @file.MainCategory
+                | @file.Year/@file.Month
             </div>
         }
 
     </div>
 
 </div>
-
-@code {
-
-    readonly MediaMainCategory[] CategoryOrder =
-    {
-        MediaMainCategory.Image,
-        MediaMainCategory.Video,
-        MediaMainCategory.Audio,
-        MediaMainCategory.Document
-    };
-
-    string GetCategoryColor(MediaMainCategory cat) => cat switch
-    {
-        MediaMainCategory.Audio => "#28a745",
-        MediaMainCategory.Document => "#0d6efd",
-        MediaMainCategory.Image => "#ffc107",
-        MediaMainCategory.Video => "#dc3545",
-        _ => "#6c757d"
-    };
-
-    string GetCategoryIcon(MediaMainCategory cat) => cat switch
-    {
-        MediaMainCategory.Image => "🖼️",
-        MediaMainCategory.Video => "🎬",
-        MediaMainCategory.Audio => "🎵",
-        MediaMainCategory.Document => "📄",
-        _ => "📁"
-    };
-}
-}

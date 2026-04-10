@@ -124,15 +124,17 @@
     {
         FilePath = Playlist[CurrentIndex];
 
-        var exportedIndex = FilePath.IndexOf("Exported",
+        var libraryIndex = FilePath.IndexOf("Library",
             StringComparison.OrdinalIgnoreCase);
 
-        var relativePath = FilePath[(exportedIndex + "Exported".Length)..]
+        if (libraryIndex < 0)
+            return;
+
+        var relativePath = FilePath[(libraryIndex + "Library".Length)..]
             .TrimStart('\\', '/')
             .Replace("\\", "/");
 
         WebPath = $"/libraryfiles/{relativePath}";
-
         IsVideo = FileScanner.IsVideo(FilePath);
 
         LoadExistingSubtitle();
@@ -148,11 +150,16 @@
             return;
         }
 
-        var exportedIndex = subtitleFile.IndexOf("Exported",
+        var libraryIndex = subtitleFile.IndexOf("Library",
             StringComparison.OrdinalIgnoreCase);
 
-        var relativePath =
-            subtitleFile[(exportedIndex + "Exported".Length)..]
+        if (libraryIndex < 0)
+        {
+            SubtitlePath = "";
+            return;
+        }
+
+        var relativePath = subtitleFile[(libraryIndex + "Library".Length)..]
             .TrimStart('\\', '/')
             .Replace("\\", "/");
 

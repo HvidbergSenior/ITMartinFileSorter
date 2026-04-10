@@ -95,9 +95,10 @@
         FilesInCategory = DuplicateService.AllFiles
             .Where(f =>
                 f.MainCategory == CurrentCategory &&
-                f.Status == MediaFileStatus.Initial)
+                f.Status == MediaFileStatus.Initial &&
+                !DuplicateService.DuplicateGroups.Any(g => g.Contains(f)))
             .ToList();
-
+        
         if (CurrentCategory == MediaMainCategory.Audio)
         {
             AudioGroups = FilesInCategory
@@ -120,8 +121,18 @@
 
     void Keep(MediaFile file)
     {
-        file.Status = MediaFileStatus.ToKeep;
-        LoadFiles();
+        var group = DuplicateService.DuplicateGroups
+            .FirstOrDefault(g => g.Contains(file));
+
+        if (group is null)
+            return;
+
+        foreach (var f in group)
+        {
+            f.Status = f == file
+                ? MediaFileStatus.ToKeep
+                : MediaFileStatus.ToDelete;
+        }
     }
 
     void AcceptAll()

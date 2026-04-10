@@ -1,21 +1,29 @@
 ﻿@page "/export"
 @using ITMartinFileSorter.Application.Services
+@using SixLabors.ImageSharp
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 @inject FastVideoBatchExportService FastVideoBatchExportService
 @inject ImageBatchExportService ImageBatchExportService
-
+@inject IConfiguration Configuration
 <div class="export-page">
 
     <ActionButtonBar>
         <SectionTitle Title="Export Organized Files" />
 
         <button class="btn btn-outline-secondary"
-                @onclick="GoBack">
+                @onclick="GoBack"
+                disabled="@IsExporting">
             Back
         </button>
     </ActionButtonBar>
-
+    <ContentCard Title="Debug Export">
+        <div>FolderPath: @DuplicateService.FolderPath</div>
+        <div>FilesToExport: @DuplicateService.FilesToExport.Count()</div>
+        <div>IsExporting: @IsExporting</div>
+        <div>Stage: @CurrentStage</div>
+        <div>CurrentFile: @CurrentExportFile</div>
+    </ContentCard>
     <ContentCard Title="Export Structure Preview">
         <ExportPreviewCard />
     </ContentCard>
@@ -30,13 +38,15 @@
             CurrentItem="@CurrentExportFile" />
     }
 
-    <ActionButtonBar>
-        <button class="btn btn-success btn-lg"
-                @onclick="StartExport"
-                disabled="@IsExporting">
-            Start Export
-        </button>
-    </ActionButtonBar>
+    @if (!IsExporting)
+    {
+        <ActionButtonBar>
+            <button class="btn btn-success btn-lg"
+                    @onclick="StartExport">
+                Start Export
+            </button>
+        </ActionButtonBar>
+    }
 
 </div>
 
@@ -54,215 +64,98 @@
             ? 0
             : Math.Min(100,
                 (int)((double)ExportedCount / TotalToExport * 100));
-    readonly MediaMainCategory[] CategoryOrder =
-    {
-        MediaMainCategory.Image,
-        MediaMainCategory.Video,
-        MediaMainCategory.Audio,
-        MediaMainCategory.Document
-    };
-
-    string GetCategoryColor(MediaMainCategory cat) => cat switch
-    {
-        MediaMainCategory.Audio => "#28a745",
-        MediaMainCategory.Document => "#0d6efd",
-        MediaMainCategory.Image => "#ffc107",
-        MediaMainCategory.Video => "#dc3545",
-        _ => "#6c757d"
-    };
-
-    string GetCategoryIcon(MediaMainCategory cat) => cat switch
-    {
-        MediaMainCategory.Image => "🖼️",
-        MediaMainCategory.Video => "🎬",
-        MediaMainCategory.Audio => "🎵",
-        MediaMainCategory.Document => "📄",
-        _ => "📁"
-    };
 
     void GoBack() => Navigation.NavigateTo("/");
 
     async Task StartExport()
+{
+    var files = DuplicateService.FilesToExport.ToList();
+
+    if (!files.Any())
+        return;
+
+    var exportRoot = Path.Combine(
+        Configuration["MediaSettings:LibraryRoot"]!,
+        "Library");
+
+    Directory.CreateDirectory(exportRoot);
+
+    IsExporting = true;
+    CurrentStage = "Copying files...";
+    ExportedCount = 0;
+    TotalToExport = files.Count;
+
+    await InvokeAsync(StateHasChanged);
+
+    foreach (var file in files)
     {
-        var files = DuplicateService.FilesToExport
-            .GroupBy(f => new
-            {
-                f.FileName,
-                f.SizeBytes,
-                Date = f.CreatedAt.Date
-            })
-            .Select(g => g.First())
-            .ToList();
-        if (!files.Any())
-            return;
+        var categoryFolder = file.MainCategory switch
+        {
+            MediaMainCategory.Image => "Photos",
+            MediaMainCategory.Video => "Videos",
+            MediaMainCategory.Audio => "Audio",
+            MediaMainCategory.Document => "Documents",
+            _ => "Other"
+        };
 
-        var exportRoot = Path.Combine(
-            DuplicateService.FolderPath,
-            "Exported");
+        var monthName = new DateTime(file.Year, file.Month, 1)
+            .ToString("MMMM");
 
-        Directory.CreateDirectory(exportRoot);
+        var targetFolder = Path.Combine(
+            exportRoot,
+            categoryFolder,
+            file.Year.ToString(),
+            monthName);
 
-        IsExporting = true;
-        ExportedCount = 0;
-        TotalToExport = files.Count;
-        CurrentStage = "Copying files...";
-        CurrentExportFile = "";
+        Directory.CreateDirectory(targetFolder);
+
+        var destination = Path.Combine(
+            targetFolder,
+            file.FileName);
+
+        File.Copy(file.FullPath, destination, true);
+
+        ExportedCount++;
+        CurrentExportFile = file.FileName;
 
         await InvokeAsync(StateHasChanged);
-
-        try
-        {
-            var archiveOptions = new ArchiveOptions
-            {
-                UseYearFolders = true,
-                UseMonthFolders = true,
-                UseTypeFolders = false,
-                UseTripFolders = true,
-                RenameFiles = true,
-                RenameStrategy = RenameStrategy.AlbumStyle
-            };
-
-            var builder = new ArchivePathBuilder(
-                new TripGroupingService());
-
-            var pathMap = builder.BuildStructure(
-                files,
-                archiveOptions);
-
-            var filePathLookup = new Dictionary<MediaFile, string>();
-
-            foreach (var kvp in pathMap)
-            {
-                foreach (var mappedFile in kvp.Value)
-                {
-                    filePathLookup[mappedFile] = kvp.Key;
-                }
-            }
-
-            foreach (var file in files)
-            {
-                CurrentExportFile = file.FileName;
-
-                var relativePath = filePathLookup[file];
-
-                var targetFolder = Path.Combine(
-                    exportRoot,
-                    relativePath);
-
-                Directory.CreateDirectory(targetFolder);
-
-                var newName = archiveOptions.RenameFiles
-                    ? FileRenameService.BuildName(
-                        file,
-                        ExportedCount + 1,
-                        archiveOptions.RenameStrategy)
-                    : file.FileName;
-
-                newName = AlbumStyleNameBuilder.EnsureUnique(
-                    targetFolder,
-                    newName);
-
-                var destination = Path.Combine(
-                    targetFolder,
-                    newName);
-
-                using var source = new FileStream(
-                    file.WorkingPath,
-                    FileMode.Open,
-                    FileAccess.Read,
-                    FileShare.Read,
-                    81920,
-                    true);
-
-                using var dest = new FileStream(
-                    destination,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None,
-                    81920,
-                    true);
-
-                await source.CopyToAsync(dest);
-
-                var created = File.GetCreationTime(file.WorkingPath);
-                var modified = File.GetLastWriteTime(file.WorkingPath);
-
-                if (created.Year < 2000)
-                    created = modified;
-
-                File.SetCreationTime(destination, created);
-                File.SetLastWriteTime(destination, modified);
-
-                ExportedCount++;
-
-                if (ExportedCount % 10 == 0)
-                    await InvokeAsync(StateHasChanged);
-            }
-
-            CurrentStage = "Converting videos to MP4...";
-            CurrentExportFile = "";
-            ExportedCount = 0;
-            TotalToExport = 1;
-            await InvokeAsync(StateHasChanged);
-
-            await FastVideoBatchExportService.ConvertAllVideosAsync(
-                exportRoot,
-                async (done, total, fileName) =>
-                {
-                    ExportedCount = done;
-                    TotalToExport = total;
-                    CurrentExportFile = fileName;
-                    CurrentStage = "Converting videos to MP4...";
-
-                    await InvokeAsync(StateHasChanged);
-                });
-            CurrentStage = "Converting images to JPG...";
-            CurrentExportFile = "";
-            ExportedCount = 0;
-            TotalToExport = 1;
-            
-            await InvokeAsync(StateHasChanged);
-
-            await ImageBatchExportService.ConvertAllImagesAsync(
-                exportRoot,
-                async (done, total, fileName) =>
-                {
-                    ExportedCount = done;
-                    TotalToExport = total;
-                    CurrentExportFile = fileName;
-                    CurrentStage = "Converting images to JPG...";
-
-                    await InvokeAsync(StateHasChanged);
-                });
-            CurrentStage = "Finalizing library...";
-            CurrentExportFile = "";
-            ExportedCount = 1;
-            TotalToExport = 1;
-
-            await InvokeAsync(StateHasChanged);
-            // IMPORTANT: let filesystem settle
-            await Task.Delay(1000);
-
-            CurrentStage = "Export complete ✔";
-            ExportedCount = 1;
-            TotalToExport = 1;
-
-            await InvokeAsync(StateHasChanged);
-            // BEST UX: open library instead of random auto video
-            Navigation.NavigateTo("/library", forceLoad: true);
-        }
-        catch (Exception ex)
-        {
-            CurrentStage = "ERROR";
-            CurrentExportFile = ex.ToString();
-
-            Console.WriteLine("===== EXPORT ERROR =====");
-            Console.WriteLine(ex);
-        }
-        finally
-        {
-            IsExporting = false;
-            await InvokeAsync(StateHasChanged);
-        }
     }
+
+    CurrentStage = "Converting videos...";
+    await InvokeAsync(StateHasChanged);
+
+    await FastVideoBatchExportService.ConvertAllVideosAsync(
+        exportRoot,
+        async (done, total, fileName) =>
+        {
+            ExportedCount = done;
+            TotalToExport = total;
+            CurrentExportFile = fileName;
+            CurrentStage = "Converting videos...";
+
+            await InvokeAsync(StateHasChanged);
+        });
+
+    CurrentStage = "Converting images...";
+    await InvokeAsync(StateHasChanged);
+
+    await ImageBatchExportService.ConvertAllImagesAsync(
+        exportRoot,
+        async (done, total, fileName) =>
+        {
+            ExportedCount = done;
+            TotalToExport = total;
+            CurrentExportFile = fileName;
+            CurrentStage = "Converting images...";
+
+            await InvokeAsync(StateHasChanged);
+        });
+
+    CurrentStage = "Done ✔";
+    await InvokeAsync(StateHasChanged);
+
+    await Task.Delay(1000);
+
+    Navigation.NavigateTo("/library", forceLoad: true);
+}
 }

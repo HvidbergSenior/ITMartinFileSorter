@@ -41,8 +41,7 @@ public class ArchivePathBuilder
         List<TripGroup> trips,
         ArchiveOptions options)
     {
-        var parts = new List<string> { "Organized" };
-
+        var parts = new List<string>();
         switch (file.MainCategory)
         {
             case MediaMainCategory.Image:

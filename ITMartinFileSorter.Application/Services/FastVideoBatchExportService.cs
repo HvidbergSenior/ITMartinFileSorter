@@ -14,23 +14,20 @@ public class FastVideoBatchExportService
         string exportRoot,
         Action<int, int, string>? progress = null)
     {
-        Console.WriteLine("===== BATCH START =====");
+        Console.WriteLine("===== VIDEO CONVERSION DEBUG =====");
         Console.WriteLine($"Export root: {exportRoot}");
-
-        if (string.IsNullOrWhiteSpace(exportRoot) ||
-            !Directory.Exists(exportRoot))
-        {
-            Console.WriteLine("[BATCH] Invalid export root");
-            return;
-        }
 
         var videoFiles = Directory
             .EnumerateFiles(exportRoot, "*.*", SearchOption.AllDirectories)
             .Where(IsVideoFile)
             .ToList();
 
-        Console.WriteLine($"[BATCH] Videos found: {videoFiles.Count}");
+        Console.WriteLine($"Video files found: {videoFiles.Count}");
 
+        foreach (var file in videoFiles)
+        {
+            Console.WriteLine($"FOUND VIDEO: {file}");
+        }
         int total = videoFiles.Count;
         int current = 0;
 

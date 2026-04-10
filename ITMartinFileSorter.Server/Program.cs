@@ -57,16 +57,16 @@ var libraryRoot = !string.IsNullOrWhiteSpace(configuredRoot) &&
         Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
         "FileSorter");
 
-var exportPath = Path.Combine(libraryRoot, "Exported");
+var libraryPath = Path.Combine(libraryRoot, "Library");
 
-Directory.CreateDirectory(exportPath);
+Directory.CreateDirectory(libraryPath);
 
 var contentTypeProvider = new FileExtensionContentTypeProvider();
 contentTypeProvider.Mappings[".vtt"] = "text/vtt";
 
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new PhysicalFileProvider(exportPath),
+    FileProvider = new PhysicalFileProvider(libraryPath),
     RequestPath = "/libraryfiles",
     ContentTypeProvider = contentTypeProvider
 });

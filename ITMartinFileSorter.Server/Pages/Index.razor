@@ -16,30 +16,22 @@
 
 <div class="index-page">
 
-    <SectionTitle Title="🎬 ITMartins FileSorter" />
+    <SectionTitle Title="🎬 Scan & Organize Files" />
 
-    <ContentCard>
-        <p class="mb-0">
-            Organize photos, videos, audio and documents.
-            Scan a folder to begin sorting and duplicate detection.
+    <!-- MAIN HERO / PRIMARY ACTION -->
+    <ContentCard CssClass="scan-hero-card">
+        <p class="hero-text">
+            Scan photos, videos, audio and documents.
+            Start by selecting a folder to organize and detect duplicates.
         </p>
 
-        <div class="mt-3">
-            <button class="btn btn-primary"
-                    @onclick="GoToLibrary">
-                Open Library
-            </button>
-        </div>
+        <FolderInputPanel
+            Value="@FolderPath"
+            ValueChanged="OnFolderPathChanged"
+            ButtonText="@(IsScanning ? "Scanning..." : "Scan Folder")"
+            Disabled="@IsScanning"
+            OnAction="ScanFolder" />
     </ContentCard>
-
-    <SectionTitle Title="Scan New Folder" />
-
-    <FolderInputPanel
-        Value="@FolderPath"
-        ValueChanged="OnFolderPathChanged"
-        ButtonText="@(IsScanning ? "Scanning..." : "Scan")"
-        Disabled="@IsScanning"
-        OnAction="ScanFolder" />
 
     @if (!string.IsNullOrWhiteSpace(PathInfo))
     {
@@ -68,8 +60,8 @@
                 Message="⚠ You must handle duplicates before continuing"
                 Type="warning" />
 
-            <div class="mt-2">
-                <button class="btn btn-sm btn-secondary"
+            <div class="mt-3">
+                <button class="btn btn-warning"
                         @onclick="GoToDuplicates">
                     Go to Duplicates
                 </button>
@@ -89,10 +81,15 @@
                     .ToList();
 
                 var total = filesInCat.Count;
-                var remaining = filesInCat.Count(f => f.Status == MediaFileStatus.Initial);
-                var kept = filesInCat.Count(f => f.Status == MediaFileStatus.ToKeep);
 
-                var isLocked = total == 0 || remaining == 0;
+                var remaining = filesInCat.Count(f =>
+                    f.Status == MediaFileStatus.Initial &&
+                    !DuplicateService.DuplicateGroups.Any(g => g.Contains(f)));
+
+                var kept = filesInCat.Count(f =>
+                    f.Status == MediaFileStatus.ToKeep);
+
+                var isLocked = remaining == 0;
 
                 <CategorySummaryCard
                     Title="@cat.ToString()"
@@ -107,9 +104,9 @@
         </div>
     }
 
-    @if (AllCategoriesHandled)
+    @if (CanExport)
     {
-        <ContentCard Title="Export Ready">
+        <ContentCard Title="Export Ready" CssClass="export-ready-card">
             <div class="alert alert-success mb-3">
                 ✔ Ready for export
             </div>
@@ -120,6 +117,23 @@
             </button>
         </ContentCard>
     }
+
+    <!-- SECONDARY LIBRARY SECTION -->
+    <ContentCard CssClass="library-secondary-card">
+        <div class="library-row">
+            <div>
+                <strong>Already scanned files?</strong>
+                <div class="text-muted">
+                    Browse previously organized files
+                </div>
+            </div>
+
+            <button class="btn btn-outline-light"
+                    @onclick="GoToLibrary">
+                Open Library
+            </button>
+        </div>
+    </ContentCard>
 
 </div>
 
@@ -158,11 +172,13 @@
         DuplicateService.AllFiles.Any() &&
         DuplicateService.DuplicatesHandled;
 
-    bool AllCategoriesHandled =>
-        CategoryOrder.All(cat =>
-            !DuplicateService.AllFiles
-                .Any(f => f.MainCategory == cat &&
-                          f.Status == MediaFileStatus.Initial));
+    bool CanExport =>
+        !IsScanning &&
+        DuplicateService.AllFiles.Any() &&
+        DuplicateService.DuplicatesHandled &&
+        !DuplicateService.AllFiles.Any(f =>
+            f.Status == MediaFileStatus.Initial &&
+            !DuplicateService.DuplicateGroups.Any(g => g.Contains(f)));
 
     void GoToDuplicates() => Navigation.NavigateTo("/duplicates");
     void GoToExport() => Navigation.NavigateTo("/export");
@@ -174,11 +190,13 @@
 
     void GoToCategory(MediaMainCategory cat)
     {
-        var hasRemaining = DuplicateService.AllFiles
-            .Any(f => f.MainCategory == cat &&
-                      f.Status == MediaFileStatus.Initial);
+        var hasRemaining = DuplicateService.AllFiles.Any(f =>
+            f.MainCategory == cat &&
+            f.Status == MediaFileStatus.Initial &&
+            !DuplicateService.DuplicateGroups.Any(g => g.Contains(f)));
 
-        if (!hasRemaining) return;
+        if (!hasRemaining)
+            return;
 
         Navigation.NavigateTo($"/category-step/{cat.ToString().ToLower()}");
     }

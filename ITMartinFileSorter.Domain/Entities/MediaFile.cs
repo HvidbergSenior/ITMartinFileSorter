@@ -34,6 +34,8 @@ public class MediaFile
     public int? Width { get; private set; }
     public int? Height { get; private set; }
 
+    public string ExportPath => WorkingPath ?? FullPath;
+    
     // Tracks whether user wants to keep the file in the workflow
     public MediaFileStatus Status { get; set; } = MediaFileStatus.Initial;
     public MediaFile(string fullPath, DateTime createdAt, MediaType type, long sizeBytes)

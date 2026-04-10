@@ -9,7 +9,11 @@
 @inject IConfiguration Configuration
 
 <div class="library-page">
-
+    <ContentCard Title="Debug">
+        <div>Root: @RootPath</div>
+        <div>Current: @CurrentPath</div>
+        <div>Exists: @Directory.Exists(CurrentPath)</div>
+    </ContentCard>
     <SectionTitle Title="🎬 My Media Library" />
 
     <ActionButtonBar>
@@ -24,12 +28,6 @@
             ⬅ Back
         </button>
     </ActionButtonBar>
-
-    <FolderInputPanel
-        Value="@SearchText"
-        ValueChanged="OnSearchChangedText"
-        ButtonText="Search"
-        OnAction="RunRecursiveSearch" />
 
     <ContentCard Title="Folders">
         <div class="folder-grid">
@@ -114,13 +112,10 @@
         var libraryRoot = Configuration["MediaSettings:LibraryRoot"];
 
         if (string.IsNullOrWhiteSpace(libraryRoot))
-        {
-            libraryRoot = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
-                "FileSorter");
-        }
+            return;
 
-        RootPath = Path.Combine(libraryRoot, "Exported", "Organized");
+        // IMPORTANT: open actual exported library
+        RootPath = Path.Combine(libraryRoot, "Library");
 
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var query = QueryHelpers.ParseQuery(uri.Query);
@@ -128,6 +123,7 @@
         if (query.TryGetValue("path", out var path))
         {
             var requestedPath = Uri.UnescapeDataString(path!);
+
             if (Directory.Exists(requestedPath))
             {
                 LoadFolder(requestedPath);

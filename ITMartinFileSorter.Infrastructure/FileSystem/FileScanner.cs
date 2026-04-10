@@ -6,6 +6,12 @@ namespace ITMartinFileSorter.Infrastructure.FileSystem;
 
 public sealed class FileScanner : IFileScanner
 {
+    private readonly IHashService _hashService;
+
+    public FileScanner(IHashService hashService)
+    {
+        _hashService = hashService;
+    }
     public static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".gif", ".bmp",
@@ -87,12 +93,16 @@ public sealed class FileScanner : IFileScanner
                     ? MediaType.Audio
                     : MediaType.Document;
 
-            yield return new MediaFile(
+            var mediaFile = new MediaFile(
                 fullPath: file,
                 createdAt: info.LastWriteTimeUtc,
                 type: type,
                 sizeBytes: info.Length
             );
+
+            mediaFile.SetHash( _hashService.ComputeHash(file));
+
+            yield return mediaFile;
         }
     }
 }
