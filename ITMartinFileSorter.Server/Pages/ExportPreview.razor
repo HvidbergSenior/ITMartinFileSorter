@@ -1,25 +1,36 @@
-﻿@using ITMartinFileSorter.Application.Services
+﻿@using System.Globalization
+@using ITMartinFileSorter.Application.Services
 @inject DuplicateService DuplicateService
 
-<div class="content-card">
+<div>
 
-    <div class="export-preview-header">
-        <strong>Preview of exported structure</strong>
-    </div>
-
-    <div class="card-body">
-
-        <div>FilesToExport count: @DuplicateService.FilesToExport.Count()</div>
-
-        @foreach (var file in DuplicateService.FilesToExport)
+    @if (!DuplicateService.FilesToExport.Any())
+    {
+        <div>No files selected for export</div>
+    }
+    else
+    {
+        @foreach (var group in DuplicateService.FilesToExport
+                      .GroupBy(f => new
+                      {
+                          f.MainCategory,
+                          f.Year,
+                          f.Month
+                      }))
         {
-            <div>
-                📄 @file.FileName
-                | @file.MainCategory
-                | @file.Year/@file.Month
+            var monthName = new DateTime(
+                    group.Key.Year,
+                    group.Key.Month,
+                    1)
+                .ToString("MMMM", new CultureInfo("da-DK"));
+
+            <div class="mb-3">
+                📁 @group.Key.MainCategory
+                <div class="ms-3">📂 @group.Key.Year</div>
+                <div class="ms-4">📂 @monthName</div>
+                <div class="ms-5">@group.Count() files</div>
             </div>
         }
-
-    </div>
+    }
 
 </div>

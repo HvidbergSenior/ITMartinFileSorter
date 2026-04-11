@@ -51,9 +51,8 @@ public class TripGroupingService
 
     private bool IsTripCandidate(MediaFile file)
     {
-        // Only real photos and videos belong in trip folders
-        return file.SubCategory == MediaSubCategory.Camera ||
-               file.SubCategory == MediaSubCategory.PhonePhoto ||
+        // Include ALL images and videos
+        return file.MainCategory == MediaMainCategory.Image ||
                file.MainCategory == MediaMainCategory.Video;
     }
 
@@ -107,7 +106,6 @@ public class TripGroupingService
     {
         Console.WriteLine("===== TRIP LOCATION DEBUG =====");
 
-        // Prefer GPS-based location
         foreach (var file in files)
         {
             var gpsLocation = GetGpsLocation(file);
@@ -122,7 +120,6 @@ public class TripGroupingService
             }
         }
 
-        // Fallback to source folder name
         var first = files.FirstOrDefault();
 
         if (first != null)

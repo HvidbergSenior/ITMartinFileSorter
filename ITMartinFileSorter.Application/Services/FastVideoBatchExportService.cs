@@ -14,6 +14,7 @@ public class FastVideoBatchExportService
         string exportRoot,
         Action<int, int, string>? progress = null)
     {
+        Console.WriteLine("VIDEO BATCH SERVICE FINISHED");
         Console.WriteLine("===== VIDEO CONVERSION DEBUG =====");
         Console.WriteLine($"Export root: {exportRoot}");
 

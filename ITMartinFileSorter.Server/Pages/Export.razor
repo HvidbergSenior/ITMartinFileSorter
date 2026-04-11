@@ -1,11 +1,14 @@
 ﻿@page "/export"
 @using ITMartinFileSorter.Application.Services
-@using SixLabors.ImageSharp
+@using ITMartinFileSorter.Domain.Enums
+
 @inject DuplicateService DuplicateService
 @inject NavigationManager Navigation
 @inject FastVideoBatchExportService FastVideoBatchExportService
 @inject ImageBatchExportService ImageBatchExportService
 @inject IConfiguration Configuration
+@inject TripGroupingService TripGroupingService
+
 <div class="export-page">
 
     <ActionButtonBar>
@@ -17,13 +20,7 @@
             Back
         </button>
     </ActionButtonBar>
-    <ContentCard Title="Debug Export">
-        <div>FolderPath: @DuplicateService.FolderPath</div>
-        <div>FilesToExport: @DuplicateService.FilesToExport.Count()</div>
-        <div>IsExporting: @IsExporting</div>
-        <div>Stage: @CurrentStage</div>
-        <div>CurrentFile: @CurrentExportFile</div>
-    </ContentCard>
+
     <ContentCard Title="Export Structure Preview">
         <ExportPreviewCard />
     </ContentCard>
@@ -51,7 +48,6 @@
 </div>
 
 @code {
-
     bool IsExporting = false;
     int ExportedCount = 0;
     int TotalToExport = 0;
@@ -68,94 +64,124 @@
     void GoBack() => Navigation.NavigateTo("/");
 
     async Task StartExport()
-{
-    var files = DuplicateService.FilesToExport.ToList();
-
-    if (!files.Any())
-        return;
-
-    var exportRoot = Path.Combine(
-        Configuration["MediaSettings:LibraryRoot"]!,
-        "Library");
-
-    Directory.CreateDirectory(exportRoot);
-
-    IsExporting = true;
-    CurrentStage = "Copying files...";
-    ExportedCount = 0;
-    TotalToExport = files.Count;
-
-    await InvokeAsync(StateHasChanged);
-
-    foreach (var file in files)
     {
-        var categoryFolder = file.MainCategory switch
-        {
-            MediaMainCategory.Image => "Photos",
-            MediaMainCategory.Video => "Videos",
-            MediaMainCategory.Audio => "Audio",
-            MediaMainCategory.Document => "Documents",
-            _ => "Other"
-        };
+        var files = DuplicateService.FilesToExport.ToList();
 
-        var monthName = new DateTime(file.Year, file.Month, 1)
-            .ToString("MMMM");
+        if (!files.Any())
+            return;
 
-        var targetFolder = Path.Combine(
-            exportRoot,
-            categoryFolder,
-            file.Year.ToString(),
-            monthName);
+        var trips = TripGroupingService.CreateTrips(files);
 
-        Directory.CreateDirectory(targetFolder);
+        var exportRoot = Path.Combine(
+            Configuration["MediaSettings:LibraryRoot"]!,
+            "Library");
 
-        var destination = Path.Combine(
-            targetFolder,
-            file.FileName);
+        Directory.CreateDirectory(exportRoot);
 
-        File.Copy(file.FullPath, destination, true);
+        IsExporting = true;
 
-        ExportedCount++;
-        CurrentExportFile = file.FileName;
+        // COPY
+        CurrentStage = "Copying files...";
+        ExportedCount = 0;
+        TotalToExport = files.Count;
 
         await InvokeAsync(StateHasChanged);
+
+        foreach (var file in files)
+        {
+            var categoryFolder = file.MainCategory switch
+            {
+                MediaMainCategory.Image => "Photos",
+                MediaMainCategory.Video => "Videos",
+                _ => "Other"
+            };
+
+            var monthName = new DateTime(file.Year, file.Month, 1)
+                .ToString("MMMM");
+
+            var targetFolder = Path.Combine(
+                exportRoot,
+                categoryFolder,
+                file.Year.ToString(),
+                monthName);
+
+            var trip = trips.FirstOrDefault(t => t.Files.Contains(file));
+
+            if (trip != null)
+                targetFolder = Path.Combine(targetFolder, trip.Name);
+
+            Directory.CreateDirectory(targetFolder);
+
+            var extension = Path.GetExtension(file.FileName);
+
+            var typeLabel = file.MainCategory == MediaMainCategory.Video
+                ? "Video"
+                : "Photo";
+
+            var locationPart = trip?.Name.Split(' ').LastOrDefault() ?? "";
+
+            var newFileName =
+                $"{file.CreatedAt:yyyy-MM-dd} {locationPart} {typeLabel} {(ExportedCount + 1):D3}{extension}";
+
+            var destination = Path.Combine(targetFolder, newFileName);
+
+            File.Copy(file.FullPath, destination, true);
+
+            ExportedCount++;
+            CurrentExportFile = newFileName;
+
+            await InvokeAsync(StateHasChanged);
+        }
+
+        // VIDEO CONVERSION
+        var videoFiles = Directory
+            .EnumerateFiles(exportRoot, "*.*", SearchOption.AllDirectories)
+            .Where(f =>
+            {
+                var ext = Path.GetExtension(f).ToLowerInvariant();
+                return ext is ".mov" or ".avi" or ".mkv" or ".wmv";
+            })
+            .ToList();
+
+        CurrentStage = "Converting videos...";
+        ExportedCount = 0;
+        TotalToExport = videoFiles.Count;
+
+        await InvokeAsync(StateHasChanged);
+
+        await FastVideoBatchExportService.ConvertAllVideosAsync(
+            exportRoot,
+            async (done, total, fileName) =>
+            {
+                ExportedCount = done;
+                TotalToExport = total;
+                CurrentExportFile = fileName;
+
+                await InvokeAsync(StateHasChanged);
+            });
+
+        // IMAGE CONVERSION
+        CurrentStage = "Converting images...";
+        ExportedCount = 0;
+
+        await InvokeAsync(StateHasChanged);
+
+        await ImageBatchExportService.ConvertAllImagesAsync(
+            exportRoot,
+            async (done, total, fileName) =>
+            {
+                ExportedCount = done;
+                TotalToExport = total;
+                CurrentExportFile = fileName;
+
+                await InvokeAsync(StateHasChanged);
+            });
+
+        CurrentStage = "Done ✔";
+        await InvokeAsync(StateHasChanged);
+
+        await Task.Delay(1000);
+
+        Navigation.NavigateTo("/library", forceLoad: true);
     }
-
-    CurrentStage = "Converting videos...";
-    await InvokeAsync(StateHasChanged);
-
-    await FastVideoBatchExportService.ConvertAllVideosAsync(
-        exportRoot,
-        async (done, total, fileName) =>
-        {
-            ExportedCount = done;
-            TotalToExport = total;
-            CurrentExportFile = fileName;
-            CurrentStage = "Converting videos...";
-
-            await InvokeAsync(StateHasChanged);
-        });
-
-    CurrentStage = "Converting images...";
-    await InvokeAsync(StateHasChanged);
-
-    await ImageBatchExportService.ConvertAllImagesAsync(
-        exportRoot,
-        async (done, total, fileName) =>
-        {
-            ExportedCount = done;
-            TotalToExport = total;
-            CurrentExportFile = fileName;
-            CurrentStage = "Converting images...";
-
-            await InvokeAsync(StateHasChanged);
-        });
-
-    CurrentStage = "Done ✔";
-    await InvokeAsync(StateHasChanged);
-
-    await Task.Delay(1000);
-
-    Navigation.NavigateTo("/library", forceLoad: true);
-}
 }

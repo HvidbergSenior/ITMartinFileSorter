@@ -1,32 +1,32 @@
-﻿namespace ITMartinFileSorter.Application.Services;
+﻿    namespace ITMartinFileSorter.Application.Services;
 
-public class FolderPathInfoService
-{
-    public string? GetPathInfo(
-        string? configuredPath,
-        string? selectedPath)
+    public class FolderPathInfoService
     {
-        if (string.IsNullOrWhiteSpace(configuredPath) ||
-            string.IsNullOrWhiteSpace(selectedPath))
-            return null;
-
-        var configFull = Path.GetFullPath(configuredPath)
-            .TrimEnd(Path.DirectorySeparatorChar);
-
-        var selectedFull = Path.GetFullPath(selectedPath)
-            .TrimEnd(Path.DirectorySeparatorChar);
-
-        if (!string.Equals(
-                configFull,
-                selectedFull,
-                StringComparison.OrdinalIgnoreCase))
+        public string? GetPathInfo(
+            string? configuredPath,
+            string? selectedPath)
         {
-            return
-                $"You are using a different folder than the default library.\n" +
-                $"Default: {configFull}\n" +
-                $"Selected: {selectedFull}";
-        }
+            if (string.IsNullOrWhiteSpace(configuredPath) ||
+                string.IsNullOrWhiteSpace(selectedPath))
+                return null;
 
-        return null;
+            var configFull = Path.GetFullPath(configuredPath)
+                .TrimEnd(Path.DirectorySeparatorChar);
+
+            var selectedFull = Path.GetFullPath(selectedPath)
+                .TrimEnd(Path.DirectorySeparatorChar);
+
+            if (!string.Equals(
+                    configFull,
+                    selectedFull,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return
+                    $"You are using a different folder than the default library.\n" +
+                    $"Default: {configFull}\n" +
+                    $"Selected: {selectedFull}";
+            }
+
+            return null;
+        }
     }
-}

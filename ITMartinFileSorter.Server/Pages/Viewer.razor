@@ -5,48 +5,19 @@
 
 @inject NavigationManager Navigation
 @inject SubtitleService SubtitleService
-
+@inject IConfiguration Configuration
 <div class="viewer-page">
 
     <ActionButtonBar>
-        <button class="btn btn-outline-light"
-                @onclick="GoHome">
-            🏠 Home
-        </button>
-
-        <button class="btn btn-outline-secondary"
-                @onclick="GoToFolder">
-            📁 Folder
-        </button>
-
-        <button class="btn btn-secondary"
-                @onclick="PlayPrevious"
-                disabled="@(Playlist.Count <= 1)">
-            ⬅ Previous
-        </button>
-
-        <button class="btn btn-danger"
-                @onclick="PlayNext"
-                disabled="@(Playlist.Count <= 1)">
-            Next ➜
-        </button>
+        <button class="btn btn-outline-light" @onclick="GoHome">🏠 Home</button>
+        <button class="btn btn-outline-secondary" @onclick="GoToFolder">📁 Folder</button>
+        <button class="btn btn-secondary" @onclick="PlayPrevious" disabled="@(Playlist.Count <= 1)">⬅ Previous</button>
+        <button class="btn btn-danger" @onclick="PlayNext" disabled="@(Playlist.Count <= 1)">Next ➜</button>
     </ActionButtonBar>
 
     @if (!string.IsNullOrEmpty(StatusMessage))
     {
-        <EmptyState
-            Message="@StatusMessage"
-            Type="info" />
-    }
-
-    @if (IsGeneratingSubtitles)
-    {
-        <ProgressPanel
-            Title="Generating subtitles..."
-            Current="@_elapsedSeconds"
-            Total="100"
-            Percent="@_elapsedSeconds"
-            CurrentItem="@ElapsedText" />
+        <EmptyState Message="@StatusMessage" Type="info" />
     }
 
     @if (!string.IsNullOrEmpty(FilePath))
@@ -54,17 +25,13 @@
         <ContentCard Title="@Path.GetFileName(FilePath)">
             @if (IsVideo)
             {
-                <video class="viewer-video"
-                       width="100%"
-                       controls
-                       autoplay>
+                <video class="viewer-video" width="100%" controls autoplay>
                     <source src="@WebPath" type="video/mp4" />
                 </video>
             }
             else
             {
-                <img class="viewer-image"
-                     src="@WebPath" />
+                <img class="viewer-image" src="@WebPath" />
             }
         </ContentCard>
     }
@@ -74,20 +41,11 @@
 @code {
     private string FilePath = "";
     private string WebPath = "";
-    private string SubtitlePath = "";
-    private string StatusMessage = "";
-
     private bool IsVideo;
-    private bool IsGeneratingSubtitles;
+    private string StatusMessage = "";
 
     private List<string> Playlist = new();
     private int CurrentIndex = 0;
-    private System.Timers.Timer? _subtitleTimer;
-    private int _elapsedSeconds;
-    private string ElapsedText => TimeSpan
-        .FromSeconds(_elapsedSeconds)
-        .ToString(@"mm\:ss");
-
 
     protected override void OnParametersSet()
     {
@@ -97,20 +55,24 @@
         if (!query.TryGetValue("path", out var path))
             return;
 
-        FilePath = Uri.UnescapeDataString(path!);
+        var requestedPath = Uri.UnescapeDataString(path!);
+
+        FilePath = ResolveConvertedPath(requestedPath);
 
         var folder = Path.GetDirectoryName(FilePath);
 
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
             return;
 
-        Playlist = FilterConvertedFiles(
-                Directory
-                    .EnumerateFiles(folder)
-                    .Where(FileScanner.IsSupportedMedia)
-                    .OrderBy(x => x))
+        Playlist = Directory
+            .EnumerateFiles(folder)
+            .Select(ResolveConvertedPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(File.Exists)
+            .Where(FileScanner.IsSupportedMedia)
+            .OrderBy(x => x)
             .ToList();
-        
+
         CurrentIndex = Playlist.FindIndex(f =>
             string.Equals(f, FilePath, StringComparison.OrdinalIgnoreCase));
 
@@ -124,129 +86,26 @@
     {
         FilePath = Playlist[CurrentIndex];
 
-        var libraryIndex = FilePath.IndexOf("Library",
-            StringComparison.OrdinalIgnoreCase);
+        var libraryRoot = Path.Combine(
+            Configuration["MediaSettings:LibraryRoot"]!,
+            "Library");
 
-        if (libraryIndex < 0)
-            return;
-
-        var relativePath = FilePath[(libraryIndex + "Library".Length)..]
-            .TrimStart('\\', '/')
+        var relativePath = Path.GetRelativePath(
+                libraryRoot,
+                FilePath)
             .Replace("\\", "/");
 
         WebPath = $"/libraryfiles/{relativePath}";
+
         IsVideo = FileScanner.IsVideo(FilePath);
-
-        LoadExistingSubtitle();
     }
-
-    private void LoadExistingSubtitle()
-    {
-        var subtitleFile = Path.ChangeExtension(FilePath, ".da.vtt");
-
-        if (!File.Exists(subtitleFile))
-        {
-            SubtitlePath = "";
-            return;
-        }
-
-        var libraryIndex = subtitleFile.IndexOf("Library",
-            StringComparison.OrdinalIgnoreCase);
-
-        if (libraryIndex < 0)
-        {
-            SubtitlePath = "";
-            return;
-        }
-
-        var relativePath = subtitleFile[(libraryIndex + "Library".Length)..]
-            .TrimStart('\\', '/')
-            .Replace("\\", "/");
-
-        SubtitlePath = $"/libraryfiles/{relativePath}";
-    }
-
-    private async Task GenerateQuickSubtitles()
-    {
-        await GenerateSubtitles(false);
-    }
-
-    private async Task GeneratePremiumSubtitles()
-    {
-        await GenerateSubtitles(true);
-    }
-
-    private async Task GenerateSubtitles(bool isLongFilm)
-    {
-        if (!IsVideo)
-            return;
-
-        IsGeneratingSubtitles = true;
-
-        StatusMessage = isLongFilm
-            ? "🎬 Generating premium subtitles for long film..."
-            : "🇩🇰 Generating quick subtitles...";
-
-        StateHasChanged();
-        _elapsedSeconds = 0;
-        StartSubtitleTimer();
-
-        var result =
-            await SubtitleService.GenerateDanishSubtitlesAsync(
-                FilePath,
-                isLongFilm);
-
-        StopSubtitleTimer();
-
-        if (!string.IsNullOrWhiteSpace(result))
-        {
-            LoadExistingSubtitle();
-            StatusMessage = "Subtitles ready 🇩🇰";
-        }
-        else
-        {
-            StatusMessage = "Subtitle generation failed";
-        }
-
-        IsGeneratingSubtitles = false;
-
-        await InvokeAsync(StateHasChanged);
-    }
-    private void StartSubtitleTimer()
-    {
-        StopSubtitleTimer();
-
-        _subtitleTimer = new System.Timers.Timer(1000);
-
-        _subtitleTimer.Elapsed += async (_, _) =>
-        {
-            _elapsedSeconds++;
-
-            await InvokeAsync(StateHasChanged);
-        };
-
-        _subtitleTimer.AutoReset = true;
-        _subtitleTimer.Start();
-    }
-
-    private void StopSubtitleTimer()
-    {
-        _subtitleTimer?.Stop();
-        _subtitleTimer?.Dispose();
-        _subtitleTimer = null;
-    }
-
 
     private void PlayNext()
     {
         if (Playlist.Count <= 1)
             return;
 
-        CurrentIndex++;
-
-        if (CurrentIndex >= Playlist.Count)
-            CurrentIndex = 0;
-
+        CurrentIndex = (CurrentIndex + 1) % Playlist.Count;
         LoadCurrentMedia();
     }
 
@@ -276,34 +135,25 @@
             $"/library?path={Uri.EscapeDataString(folder!)}",
             forceLoad: true);
     }
-    private IEnumerable<string> FilterConvertedFiles(
-        IEnumerable<string> files)
+
+    private string ResolveConvertedPath(string originalPath)
     {
-        var list = files.ToList();
+        var folder = Path.GetDirectoryName(originalPath);
 
-        var convertedBaseNames = list
-            .Where(f =>
-                Path.GetFileNameWithoutExtension(f)
-                    .EndsWith("_fixed",
-                        StringComparison.OrdinalIgnoreCase))
-            .Select(f =>
-            {
-                var name = Path.GetFileNameWithoutExtension(f);
-                return name[..^6]; // remove "_fixed"
-            })
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(folder))
+            return originalPath;
 
-        return list.Where(file =>
-        {
-            var ext = Path.GetExtension(file).ToLowerInvariant();
-            var name = Path.GetFileNameWithoutExtension(file);
+        var name = Path.GetFileNameWithoutExtension(originalPath);
 
-            // hide original if converted exists
-            if (ext != ".mp4" &&
-                convertedBaseNames.Contains(name))
-                return false;
+        var mp4 = Path.Combine(folder, $"{name}.mp4");
+        var jpg = Path.Combine(folder, $"{name}.jpg");
 
-            return true;
-        });
+        if (File.Exists(mp4))
+            return mp4;
+
+        if (File.Exists(jpg))
+            return jpg;
+
+        return originalPath;
     }
 }

@@ -29,7 +29,7 @@ public class FastUniversalVideoConverterService
         Directory.CreateDirectory(outputFolder);
 
         var name = Path.GetFileNameWithoutExtension(inputPath);
-        var outputPath = Path.Combine(outputFolder, $"{name}_fixed.mp4");
+        var outputPath = Path.Combine(outputFolder, $"{name}.mp4");
 
         var info = await GetCodecInfoAsync(inputPath);
 
@@ -59,7 +59,7 @@ public class FastUniversalVideoConverterService
 
         await WaitForOutputReady(outputPath);
         CopyDates(inputPath, outputPath);
-
+        TryDeleteOriginal(inputPath, outputPath);
         return outputPath;
     }
 
@@ -101,17 +101,29 @@ public class FastUniversalVideoConverterService
         string? videoCodec = null;
         string? audioCodec = null;
 
-        foreach (var stream in doc.RootElement.GetProperty("streams").EnumerateArray())
-        {
-            var codecType = stream.GetProperty("codec_type").GetString();
-            var codecName = stream.GetProperty("codec_name").GetString();
+        if (!doc.RootElement.TryGetProperty("streams", out var streams))
+            return new CodecInfo(null, null);
 
-            if (codecType == "video")
+        foreach (var stream in streams.EnumerateArray())
+        {
+            if (!stream.TryGetProperty("codec_type", out var codecTypeElement))
+                continue;
+
+            if (!stream.TryGetProperty("codec_name", out var codecNameElement))
+                continue;
+
+            var codecType = codecTypeElement.GetString();
+            var codecName = codecNameElement.GetString();
+
+            if (codecType == "video" && videoCodec == null)
                 videoCodec = codecName;
 
-            if (codecType == "audio")
+            if (codecType == "audio" && audioCodec == null)
                 audioCodec = codecName;
         }
+
+        Console.WriteLine($"VIDEO CODEC: {videoCodec}");
+        Console.WriteLine($"AUDIO CODEC: {audioCodec}");
 
         return new CodecInfo(videoCodec, audioCodec);
     }
@@ -207,6 +219,25 @@ public class FastUniversalVideoConverterService
             await Task.Delay(250);
         }
     }
+    private void TryDeleteOriginal(string inputPath, string outputPath)
+    {
+        if (!File.Exists(outputPath))
+            return;
 
+        if (string.Equals(inputPath, outputPath,
+                StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            File.Delete(inputPath);
+
+            Console.WriteLine($"[VIDEO ORIGINAL DELETED] {inputPath}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[VIDEO DELETE FAILED] {ex}");
+        }
+    }
     private record CodecInfo(string? VideoCodec, string? AudioCodec);
 }
