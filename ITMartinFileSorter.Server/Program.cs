@@ -4,11 +4,12 @@ using ITMartinFileSorter.Application.Services;
 using ITMartinFileSorter.Domain.Interfaces;
 using ITMartinFileSorter.Infrastructure.FileSystem;
 using ITMartinFileSorter.Infrastructure.Services;
+using ITMartinFileSorter.Server;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 
 builder.Services.AddScoped<IFileScanner, FileScanner>();
 builder.Services.AddScoped<IHashService, Sha256HashService>();
@@ -29,7 +30,6 @@ builder.Services.AddScoped<UniversalImageConverterService>();
 builder.Services.AddScoped<ImageBatchExportService>();
 builder.Services.AddScoped<SubtitleService>();
 builder.Services.AddScoped<FolderPathInfoService>();
-
 
 builder.Services.AddScoped<HomeLocationService>();
 builder.Services.AddScoped<JunkDetectionService>();
@@ -71,10 +71,11 @@ app.UseStaticFiles(new StaticFileOptions
     ContentTypeProvider = contentTypeProvider
 });
 
-app.UseRouting();
+app.UseAntiforgery();
 
 app.MapControllers();
-app.MapBlazorHub();
-app.MapFallbackToPage("/_Host");
+
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 app.Run();

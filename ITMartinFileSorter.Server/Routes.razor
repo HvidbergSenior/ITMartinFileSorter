@@ -1,0 +1,15 @@
+﻿@using Microsoft.AspNetCore.Components.Routing
+@using ITMartinFileSorter.Server.Layout
+
+<Router AppAssembly="@typeof(Program).Assembly">
+    <Found Context="context">
+        <RouteView RouteData="context"
+                   DefaultLayout="@typeof(FileSorterLayout)" />
+    </Found>
+
+    <NotFound>
+        <LayoutView Layout="@typeof(FileSorterLayout)">
+            <p>Page not found.</p>
+        </LayoutView>
+    </NotFound>
+</Router>
